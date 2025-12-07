@@ -1,4 +1,3 @@
-import React from "react";
 import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
 import type { Variants } from "framer-motion";
@@ -100,7 +99,6 @@ export default function Features() {
             </p>
           </motion.div>
 
-          {/* Features Grid */}
           <motion.div 
             className="grid md:grid-cols-2 lg:grid-cols-3 gap-8"
             variants={staggerContainer}
@@ -109,7 +107,6 @@ export default function Features() {
             viewport={{ once: true, amount: 0.1 }}
           >
             
-            {/* Feature 1: Doctor Portal */}
             <motion.div variants={fadeInUp} className="group bg-white rounded-2xl p-6 shadow-md hover:shadow-lg border border-gray-200 transition-all duration-300">
               <div className="w-12 h-12 bg-blue-100 text-blue-600 rounded-xl flex items-center justify-center text-2xl mb-4 group-hover:scale-110 transition-transform">
                 👨‍⚕️
@@ -120,7 +117,6 @@ export default function Features() {
               </p>
             </motion.div>
 
-            {/* Feature 2: Patient Registration */}
             <motion.div variants={fadeInUp} className="group bg-white rounded-2xl p-6 shadow-md hover:shadow-lg border border-gray-200 transition-all duration-300">
               <div className="w-12 h-12 bg-emerald-100 text-emerald-600 rounded-xl flex items-center justify-center text-2xl mb-4 group-hover:scale-110 transition-transform">
                 📝
@@ -131,7 +127,6 @@ export default function Features() {
               </p>
             </motion.div>
 
-            {/* Feature 3: Queue Management */}
             <motion.div variants={fadeInUp} className="group bg-white rounded-2xl p-6 shadow-md hover:shadow-lg border border-gray-200 transition-all duration-300">
               <div className="w-12 h-12 bg-purple-100 text-purple-600 rounded-xl flex items-center justify-center text-2xl mb-4 group-hover:scale-110 transition-transform">
                 ⏳
@@ -142,7 +137,6 @@ export default function Features() {
               </p>
             </motion.div>
 
-            {/* Feature 4: Electronic Health Records */}
             <motion.div variants={fadeInUp} className="group bg-white rounded-2xl p-6 shadow-md hover:shadow-lg border border-gray-200 transition-all duration-300">
               <div className="w-12 h-12 bg-red-100 text-red-600 rounded-xl flex items-center justify-center text-2xl mb-4 group-hover:scale-110 transition-transform">
                 📂
@@ -153,7 +147,6 @@ export default function Features() {
               </p>
             </motion.div>
 
-            {/* Feature 5: Billing & Invoicing */}
             <motion.div variants={fadeInUp} className="group bg-white rounded-2xl p-6 shadow-md hover:shadow-lg border border-gray-200 transition-all duration-300">
               <div className="w-12 h-12 bg-yellow-100 text-yellow-600 rounded-xl flex items-center justify-center text-2xl mb-4 group-hover:scale-110 transition-transform">
                 💳
@@ -164,7 +157,6 @@ export default function Features() {
               </p>
             </motion.div>
 
-            {/* Feature 6: Staff Management */}
             <motion.div variants={fadeInUp} className="group bg-white rounded-2xl p-6 shadow-md hover:shadow-lg border border-gray-200 transition-all duration-300">
               <div className="w-12 h-12 bg-indigo-100 text-indigo-600 rounded-xl flex items-center justify-center text-2xl mb-4 group-hover:scale-110 transition-transform">
                 👥

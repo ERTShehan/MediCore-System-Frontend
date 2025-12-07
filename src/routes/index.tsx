@@ -6,9 +6,9 @@ const Index = lazy(() => import("../pages/index"));
 const Login = lazy(() => import("../pages/Login"));
 const Register = lazy(() => import("../pages/Register"));
 const DoctorDashboard = lazy(() => import("../pages/DoctorDashboard"));
+// const CounterDashboard = lazy(() => import("../pages/CounterDashboard"));
 const Features = lazy(() => import("../pages/Features"));
 const Pricing = lazy(() => import("../pages/Pricing"));
-// const CounterDashboard = lazy(() => import("../pages/CounterDashboard"));
 
 type RequireAuthTypes = { children: ReactNode; roles?: string[] };
 
@@ -45,6 +45,7 @@ export default function Router() {
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
 
+          {/* Doctor Route */}
           <Route
             path="/doctor-dashboard"
             element={
@@ -54,9 +55,6 @@ export default function Router() {
             }
           />
 
-          <Route path="/features" element={<Features />} />
-          <Route path="/pricing" element={<Pricing />} />
-
           {/* <Route
             path="/counter-dashboard"
             element={
@@ -65,7 +63,10 @@ export default function Router() {
               </RequireAuth>
             }
           /> */}
-          
+
+          <Route path="/features" element={<Features />} />
+          <Route path="/pricing" element={<Pricing />} />
+
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </Suspense>
