@@ -1,11 +1,9 @@
-import React from "react";
 import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
 import type { Variants } from "framer-motion";
 import logo from "../assets/medicore-logo.png";
 
 export default function Pricing() {
-  // Animation Variants
   const fadeInUp: Variants = {
     hidden: { opacity: 0, y: 40 },
     visible: { opacity: 1, y: 0, transition: { duration: 0.6, ease: "easeOut" } }
@@ -213,7 +211,6 @@ export default function Pricing() {
         </div>
       </div>
 
-      {/* --- Footer (Consistent) --- */}
       <footer className="bg-linear-to-br from-gray-900 to-gray-800 text-gray-400 py-8 border-t border-gray-700 relative z-10">
         <div className="max-w-6xl mx-auto px-8 lg:px-12 text-center text-sm">
           <p>© 2025 MediCore. All rights reserved.</p>

@@ -5,7 +5,6 @@ import type { Variants } from "framer-motion";
 import logo from "../assets/medicore-logo.png";
 
 export default function Features() {
-  // Animation Variants (Same as Index.tsx for consistency)
   const fadeInUp: Variants = {
     hidden: { opacity: 0, y: 40 },
     visible: { opacity: 1, y: 0, transition: { duration: 0.6, ease: "easeOut" } }
@@ -23,7 +22,6 @@ export default function Features() {
 
   return (
     <div className="min-h-screen bg-linear-to-br from-slate-50 to-blue-50 font-sans text-gray-800 relative overflow-hidden">
-      {/* --- Full Page Background Logo --- */}
       <div 
         className="fixed inset-0 z-0 opacity-12"
         style={{
@@ -35,7 +33,6 @@ export default function Features() {
         }}
       />
 
-      {/* --- Navigation Bar (Exactly as requested) --- */}
       <nav className="fixed top-0 left-0 right-0 bg-white/95 backdrop-blur-xl shadow-sm z-50 border-b border-gray-200">
         <div className="max-w-6xl mx-auto px-8 lg:px-12 py-3 flex justify-between items-center">
           {/* Logo Section */}
@@ -67,7 +64,6 @@ export default function Features() {
         </div>
       </nav>
 
-      {/* --- Main Content Section --- */}
       <div className="pt-28 pb-20 relative overflow-hidden">
         {/* Background Blobs */}
         <div className="absolute top-0 left-0 w-64 h-64 bg-blue-200 rounded-full mix-blend-multiply filter blur-3xl opacity-20 animate-blob"></div>
@@ -75,7 +71,6 @@ export default function Features() {
         
         <div className="max-w-6xl mx-auto px-8 lg:px-12 relative z-10">
           
-          {/* Back to Home Button */}
           <motion.div 
             initial={{ opacity: 0, x: -20 }}
             animate={{ opacity: 1, x: 0 }}
@@ -184,7 +179,6 @@ export default function Features() {
         </div>
       </div>
 
-      {/* --- Footer (Simple version consistent with design) --- */}
       <footer className="bg-linear-to-br from-gray-900 to-gray-800 text-gray-400 py-8 border-t border-gray-700 relative z-10">
         <div className="max-w-6xl mx-auto px-8 lg:px-12 text-center text-sm">
           <p>© 2025 MediCore. All rights reserved.</p>

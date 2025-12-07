@@ -11,7 +11,6 @@ export default function Layout({ children }: LayoutProps) {
   const navigate = useNavigate();
 
   const handleLogout = () => {
-    // Clear State & Storage
     setUser(null);
     localStorage.removeItem("accessToken");
     localStorage.removeItem("refreshToken");
@@ -53,7 +52,6 @@ export default function Layout({ children }: LayoutProps) {
 
       {/* --- Main Content Area --- */}
       <main className="flex-1 max-w-7xl mx-auto px-6 py-8 w-full">
-        {/* Router එකේ children pass නොවන විට Dashboard එක හිස්ව නොපෙන්වීමට Placeholder එකක් */}
         {children ? (
           children
         ) : (
@@ -65,7 +63,6 @@ export default function Layout({ children }: LayoutProps) {
               Select an option from the menu to start managing the clinic.
             </p>
             <div className="mt-8 grid grid-cols-1 md:grid-cols-3 gap-6">
-                {/* Dummy Cards for Visual Appeal */}
                 <div className="p-6 bg-blue-50 rounded-lg border border-blue-100">
                     <h3 className="font-bold text-blue-800 text-lg">Patients</h3>
                     <p className="text-blue-600">View Queue</p>
@@ -83,9 +80,8 @@ export default function Layout({ children }: LayoutProps) {
         )}
       </main>
 
-      {/* --- Simple Footer --- */}
       <footer className="bg-white border-t border-gray-200 py-4 text-center text-sm text-gray-400">
-        © 2025 MediCore System. internal use only.
+        © 2025 MediCore System.
       </footer>
     </div>
   );

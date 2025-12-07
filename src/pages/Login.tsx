@@ -21,24 +21,33 @@ export default function Login() {
       // 1. Call API
       const res = await loginUser({ email, password });
       
+      const { accessToken, refreshToken, roles } = res.data; 
+      const userData = res.data;
+
+      if (!accessToken) {
+         throw new Error("Login failed: No token received.");
+      }
+
       // 2. Save Tokens
-      localStorage.setItem("accessToken", res.accessToken);
-      localStorage.setItem("refreshToken", res.refreshToken);
+      localStorage.setItem("accessToken", accessToken);
+      localStorage.setItem("refreshToken", refreshToken);
 
       // 3. Update Context
-      const userData = res.user;
       setUser(userData);
 
       // 4. Role Based Redirect
-      if (userData.role === "doctor") {
+      const userRole = roles && roles.length > 0 ? roles[0] : "";
+
+      if (userRole === "doctor") {
         navigate("/doctor-dashboard");
-      } else if (userData.role === "counter") {
+      } else if (userRole === "counter") {
         navigate("/counter-dashboard");
       } else {
         navigate("/");
       }
 
     } catch (err: any) {
+      console.error("Login Error:", err);
       setError(err.response?.data?.message || "Invalid email or password");
     } finally {
       setLoading(false);
