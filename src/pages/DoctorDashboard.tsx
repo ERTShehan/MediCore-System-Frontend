@@ -1,18 +1,23 @@
 import React, { useEffect, useState } from "react";
 import Layout from "../components/Layout";
 import { motion, AnimatePresence } from "framer-motion";
+import { Toaster, toast } from "react-hot-toast";
 
+// Services
 import { requestNextPatient, submitTreatment, getPatientHistory } from "../services/visit";
 import { createStaff, getMyStaff, deleteStaff, toggleStaffStatus } from "../services/staff";
 
+// Icons
 import { 
   Users, Activity, Calendar, Clock, 
   UserPlus, Trash2, Eye, FileText,
   Stethoscope, Pill, History, UserCheck,
   ChevronRight, CheckCircle, XCircle,
-  AlertCircle, MoreVertical
+  AlertCircle, MoreVertical, X, Info,
+  AlertTriangle, Check, Loader2
 } from "lucide-react";
 
+// Types
 interface StaffMember {
   _id: string;
   name: string;
@@ -31,8 +36,168 @@ interface Visit {
   date?: string;
 }
 
+const SuccessToast = ({ message }: { message: string }) => (
+  <div className="flex items-center space-x-3 bg-white border border-emerald-200 rounded-xl shadow-lg p-4 max-w-md">
+    <div className="shrink-0">
+      <div className="w-8 h-8 bg-emerald-100 rounded-full flex items-center justify-center">
+        <Check className="w-5 h-5 text-emerald-600" />
+      </div>
+    </div>
+    <div className="flex-1">
+      <p className="text-sm font-medium text-gray-900">{message}</p>
+    </div>
+    <button onClick={() => toast.dismiss()} className="text-gray-400 hover:text-gray-600">
+      <X className="w-4 h-4" />
+    </button>
+  </div>
+);
+
+const ErrorToast = ({ message }: { message: string }) => (
+  <div className="flex items-center space-x-3 bg-white border border-red-200 rounded-xl shadow-lg p-4 max-w-md">
+    <div className="shrink-0">
+      <div className="w-8 h-8 bg-red-100 rounded-full flex items-center justify-center">
+        <AlertCircle className="w-5 h-5 text-red-600" />
+      </div>
+    </div>
+    <div className="flex-1">
+      <p className="text-sm font-medium text-gray-900">{message}</p>
+    </div>
+    <button onClick={() => toast.dismiss()} className="text-gray-400 hover:text-gray-600">
+      <X className="w-4 h-4" />
+    </button>
+  </div>
+);
+
+const WarningToast = ({ message }: { message: string }) => (
+  <div className="flex items-center space-x-3 bg-white border border-amber-200 rounded-xl shadow-lg p-4 max-w-md">
+    <div className="shrink-0">
+      <div className="w-8 h-8 bg-amber-100 rounded-full flex items-center justify-center">
+        <AlertTriangle className="w-5 h-5 text-amber-600" />
+      </div>
+    </div>
+    <div className="flex-1">
+      <p className="text-sm font-medium text-gray-900">{message}</p>
+    </div>
+    <button onClick={() => toast.dismiss()} className="text-gray-400 hover:text-gray-600">
+      <X className="w-4 h-4" />
+    </button>
+  </div>
+);
+
+const InfoToast = ({ message }: { message: string }) => (
+  <div className="flex items-center space-x-3 bg-white border border-blue-200 rounded-xl shadow-lg p-4 max-w-md">
+    <div className="shrink-0">
+      <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
+        <Info className="w-5 h-5 text-blue-600" />
+      </div>
+    </div>
+    <div className="flex-1">
+      <p className="text-sm font-medium text-gray-900">{message}</p>
+    </div>
+    <button onClick={() => toast.dismiss()} className="text-gray-400 hover:text-gray-600">
+      <X className="w-4 h-4" />
+    </button>
+  </div>
+);
+
+const LoadingToast = ({ message }: { message: string }) => (
+  <div className="flex items-center space-x-3 bg-white border border-gray-200 rounded-xl shadow-lg p-4 max-w-md">
+    <div className="shrink-0">
+      <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
+        <Loader2 className="w-5 h-5 text-blue-600 animate-spin" />
+      </div>
+    </div>
+    <div className="flex-1">
+      <p className="text-sm font-medium text-gray-900">{message}</p>
+    </div>
+  </div>
+);
+
+const ConfirmationModal = ({
+  isOpen,
+  onClose,
+  onConfirm,
+  title,
+  message,
+  confirmText = "Confirm",
+  cancelText = "Cancel",
+  type = "warning"
+}: {
+  isOpen: boolean;
+  onClose: () => void;
+  onConfirm: () => void;
+  title: string;
+  message: string;
+  confirmText?: string;
+  cancelText?: string;
+  type?: "warning" | "danger" | "info";
+}) => {
+  if (!isOpen) return null;
+
+  const typeColors = {
+    warning: "bg-amber-50 border-amber-200 text-amber-800",
+    danger: "bg-red-50 border-red-200 text-red-800",
+    info: "bg-blue-50 border-blue-200 text-blue-800"
+  };
+
+  const buttonColors = {
+    warning: "bg-amber-600 hover:bg-amber-700",
+    danger: "bg-red-600 hover:bg-red-700",
+    info: "bg-blue-600 hover:bg-blue-700"
+  };
+
+  return (
+    <div className="fixed inset-0 z-100 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+      <motion.div
+        initial={{ opacity: 0, scale: 0.95 }}
+        animate={{ opacity: 1, scale: 1 }}
+        exit={{ opacity: 0, scale: 0.95 }}
+        className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden"
+      >
+        <div className={`p-6 border-b ${typeColors[type]}`}>
+          <div className="flex items-center space-x-3">
+            <div className={`p-2 rounded-lg ${
+              type === "warning" ? "bg-amber-100" :
+              type === "danger" ? "bg-red-100" :
+              "bg-blue-100"
+            }`}>
+              {type === "warning" && <AlertTriangle className="w-6 h-6 text-amber-600" />}
+              {type === "danger" && <AlertCircle className="w-6 h-6 text-red-600" />}
+              {type === "info" && <Info className="w-6 h-6 text-blue-600" />}
+            </div>
+            <h3 className="text-lg font-semibold">{title}</h3>
+          </div>
+        </div>
+        
+        <div className="p-6">
+          <p className="text-gray-600 mb-6">{message}</p>
+          
+          <div className="flex justify-end space-x-3">
+            <button
+              onClick={onClose}
+              className="px-4 py-2.5 border border-gray-300 text-gray-700 font-medium rounded-lg hover:bg-gray-50 transition-colors"
+            >
+              {cancelText}
+            </button>
+            <button
+              onClick={() => {
+                onConfirm();
+                onClose();
+              }}
+              className={`px-4 py-2.5 text-white font-medium rounded-lg transition-colors ${buttonColors[type]}`}
+            >
+              {confirmText}
+            </button>
+          </div>
+        </div>
+      </motion.div>
+    </div>
+  );
+};
+
 export default function DoctorDashboard() {
   
+  // Patient States
   const [currentPatient, setCurrentPatient] = useState<Visit | null>(null);
   const [historyList, setHistoryList] = useState<Visit[]>([]);
   const [showHistoryModal, setShowHistoryModal] = useState(false);
@@ -40,12 +205,28 @@ export default function DoctorDashboard() {
   const [diagnosis, setDiagnosis] = useState("");
   const [prescription, setPrescription] = useState("");
 
+  // Staff States
   const [staffList, setStaffList] = useState<StaffMember[]>([]);
   const [showAddStaffForm, setShowAddStaffForm] = useState(false);
   const [staffLoading, setStaffLoading] = useState(true);
   const [staffFormData, setStaffFormData] = useState({ name: "", email: "", password: "" });
-  const [staffMessage, setStaffMessage] = useState<{ text: string, type: 'success' | 'error' } | null>(null);
 
+  // Confirmation Modal States
+  const [confirmationModal, setConfirmationModal] = useState<{
+    isOpen: boolean;
+    title: string;
+    message: string;
+    onConfirm: () => void;
+    type: "warning" | "danger" | "info";
+  }>({
+    isOpen: false,
+    title: "",
+    message: "",
+    onConfirm: () => {},
+    type: "warning"
+  });
+
+  // Current Time State
   const [currentTime, setCurrentTime] = useState<string>("");
 
 
@@ -55,9 +236,7 @@ export default function DoctorDashboard() {
     };
     
     updateTime();
-    
     const intervalId = setInterval(updateTime, 1000);
-    
     return () => clearInterval(intervalId);
   }, []);
 
@@ -69,24 +248,52 @@ export default function DoctorDashboard() {
     try {
       const res = await getMyStaff();
       setStaffList(res.data);
+      // toast.custom(() => <SuccessToast message="Staff list loaded successfully" />);
     } catch (error) {
+      toast.custom(() => <ErrorToast message="Failed to load staff list" />);
       console.error("Failed to fetch staff", error);
     } finally {
       setStaffLoading(false);
     }
   };
 
+  const showToast = (message: string, type: 'success' | 'error' | 'warning' | 'info' | 'loading') => {
+    const toastConfig = {
+      duration: type === 'loading' ? Infinity : 4000,
+      position: 'top-right' as const,
+    };
 
+    switch (type) {
+      case 'success':
+        return toast.custom(() => <SuccessToast message={message} />, toastConfig);
+      case 'error':
+        return toast.custom(() => <ErrorToast message={message} />, toastConfig);
+      case 'warning':
+        return toast.custom(() => <WarningToast message={message} />, toastConfig);
+      case 'info':
+        return toast.custom(() => <InfoToast message={message} />, toastConfig);
+      case 'loading':
+        return toast.custom(() => <LoadingToast message={message} />, toastConfig);
+    }
+  };
+
+  // --- PATIENT HANDLERS ---
   const handleRequestPatient = async () => {
     setPatientLoading(true);
+    const loadingToast = showToast("Checking patient queue...", "loading");
+    
     try {
       const patient = await requestNextPatient();
       setCurrentPatient(patient);
       setDiagnosis("");
       setPrescription("");
       setHistoryList([]);
+      toast.dismiss(loadingToast);
+      showToast(`Patient ${patient.patientName} loaded successfully`, "success");
     } catch (error: any) {
-      alert(error.response?.data?.message || "No patients in queue");
+      toast.dismiss(loadingToast);
+      const errorMessage = error.response?.data?.message || "No patients in queue";
+      showToast(errorMessage, "warning");
     } finally {
       setPatientLoading(false);
     }
@@ -95,72 +302,129 @@ export default function DoctorDashboard() {
   const handleSubmitTreatment = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!currentPatient) return;
+    
+    const loadingToast = showToast("Submitting treatment...", "loading");
+    
     try {
       await submitTreatment(currentPatient._id, { diagnosis, prescription });
-      alert("Treatment submitted & saved!");
+      toast.dismiss(loadingToast);
+      showToast("Treatment submitted successfully!", "success");
       setCurrentPatient(null);
     } catch (error) {
-      alert("Failed to save treatment");
+      toast.dismiss(loadingToast);
+      showToast("Failed to save treatment. Please try again.", "error");
     }
   };
 
   const handleViewHistory = async () => {
     if (!currentPatient) return;
+    
+    const loadingToast = showToast("Loading patient history...", "loading");
+    
     try {
       const res = await getPatientHistory(currentPatient.phone);
       setHistoryList(res.data);
       setShowHistoryModal(true);
+      toast.dismiss(loadingToast);
+      showToast("Patient history loaded", "success");
     } catch (error) {
-      alert("Failed to load history");
+      toast.dismiss(loadingToast);
+      showToast("Failed to load patient history", "error");
     }
   };
 
-
+  // --- STAFF HANDLERS ---
   const handleCreateStaff = async (e: React.FormEvent) => {
     e.preventDefault();
-    setStaffMessage(null);
+    const loadingToast = showToast("Creating staff member...", "loading");
+    
     try {
       await createStaff(staffFormData);
-      setStaffMessage({ text: "Staff member created successfully", type: 'success' });
+      toast.dismiss(loadingToast);
+      showToast("Staff member created successfully", "success");
       setStaffFormData({ name: "", email: "", password: "" });
       setShowAddStaffForm(false);
       fetchStaff();
     } catch (error: any) {
-      setStaffMessage({ text: error.response?.data?.message || "Failed to create staff", type: 'error' });
+      toast.dismiss(loadingToast);
+      showToast(error.response?.data?.message || "Failed to create staff member", "error");
     }
   };
 
-  const handleDeleteStaff = async (id: string) => {
-    if (!window.confirm("Are you sure you want to remove this staff member?")) return;
+  const confirmDeleteStaff = (id: string, name: string) => {
+    setConfirmationModal({
+      isOpen: true,
+      title: "Remove Staff Member",
+      message: `Are you sure you want to remove ${name}? This action cannot be undone.`,
+      onConfirm: () => performDeleteStaff(id, name),
+      type: "danger"
+    });
+  };
+
+  const performDeleteStaff = async (id: string, name: string) => {
+    const loadingToast = showToast(`Removing ${name}...`, "loading");
+    
     try {
       await deleteStaff(id);
       setStaffList(staffList.filter(s => s._id !== id));
+      toast.dismiss(loadingToast);
+      showToast(`${name} has been removed successfully`, "success");
     } catch (error) {
-      alert("Failed to delete staff member");
+      toast.dismiss(loadingToast);
+      showToast("Failed to delete staff member", "error");
     }
   };
 
-  const handleToggleStatus = async (id: string) => {
+  const handleToggleStatus = async (id: string, name: string, currentStatus: boolean) => {
+    const action = currentStatus ? "deactivate" : "activate";
+    const loadingToast = showToast(`${action === "activate" ? "Activating" : "Deactivating"} ${name}...`, "loading");
+    
     try {
       await toggleStaffStatus(id);
       setStaffList(staffList.map(s => s._id === id ? { ...s, isActive: !s.isActive } : s));
+      toast.dismiss(loadingToast);
+      showToast(`${name} ${action}d successfully`, "success");
     } catch (error) {
-      alert("Failed to update status");
+      toast.dismiss(loadingToast);
+      showToast(`Failed to ${action} staff member`, "error");
     }
   };
 
   return (
     <Layout>
       <div className="min-h-screen bg-gray-50">
+        {/* Toast Container */}
+        <Toaster
+          position="top-right"
+          reverseOrder={false}
+          gutter={8}
+          containerClassName="!z-[1000]"
+          toastOptions={{
+            duration: 4000,
+          }}
+        />
+
+        {/* Confirmation Modal */}
+        <ConfirmationModal
+          isOpen={confirmationModal.isOpen}
+          onClose={() => setConfirmationModal({ ...confirmationModal, isOpen: false })}
+          onConfirm={confirmationModal.onConfirm}
+          title={confirmationModal.title}
+          message={confirmationModal.message}
+          type={confirmationModal.type}
+          confirmText={confirmationModal.type === "danger" ? "Remove" : "Confirm"}
+        />
+
         <div className="bg-white border-b border-gray-200 px-8 py-6">
           <div className="flex justify-between items-center">
             <div>
               <h1 className="text-2xl font-bold text-gray-900">Doctor Dashboard</h1>
+              <p className="text-gray-600 text-sm mt-1">Manage patients and staff efficiently</p>
             </div>
             <div className="flex items-center space-x-4">
-              <div className="flex items-center space-x-2 text-sm">
+              <div className="flex items-center space-x-2 text-sm bg-gray-50 px-4 py-2 rounded-lg">
                 <Clock className="w-4 h-4 text-gray-400" />
-                <span className="text-gray-600">{currentTime}</span>
+                <span className="text-gray-600 font-medium">{currentTime}</span>
               </div>
             </div>
           </div>
@@ -268,10 +532,7 @@ export default function DoctorDashboard() {
                     >
                       {patientLoading ? (
                         <>
-                          <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" fill="none" viewBox="0 0 24 24">
-                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                          </svg>
+                          <Loader2 className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" />
                           Checking Queue...
                         </>
                       ) : currentPatient ? (
@@ -306,23 +567,6 @@ export default function DoctorDashboard() {
                     </button>
                   </div>
                 </div>
-
-                {staffMessage && (
-                  <div className={`mx-6 mt-6 p-4 rounded-lg border ${
-                    staffMessage.type === 'success' 
-                      ? 'bg-green-50 border-green-200 text-green-700'
-                      : 'bg-red-50 border-red-200 text-red-700'
-                  }`}>
-                    <div className="flex items-center">
-                      {staffMessage.type === 'success' ? (
-                        <CheckCircle className="w-5 h-5 mr-3" />
-                      ) : (
-                        <AlertCircle className="w-5 h-5 mr-3" />
-                      )}
-                      <span className="font-medium">{staffMessage.text}</span>
-                    </div>
-                  </div>
-                )}
 
                 <AnimatePresence>
                   {showAddStaffForm && (
@@ -391,7 +635,6 @@ export default function DoctorDashboard() {
                   )}
                 </AnimatePresence>
 
-                {/* staff table */}
                 <div className="px-6 pb-6">
                   <div className="rounded-lg border border-gray-200 overflow-hidden">
                     <div className="bg-gray-50 px-4 py-3 border-b border-gray-200">
@@ -442,7 +685,7 @@ export default function DoctorDashboard() {
                                 
                                 <div className="flex items-center space-x-2">
                                   <button
-                                    onClick={() => handleToggleStatus(staff._id)}
+                                    onClick={() => handleToggleStatus(staff._id, staff.name, staff.isActive)}
                                     className={`px-3 py-1.5 text-sm font-medium rounded-lg transition-colors ${
                                       staff.isActive
                                         ? 'bg-red-50 text-red-700 hover:bg-red-100'
@@ -452,7 +695,7 @@ export default function DoctorDashboard() {
                                     {staff.isActive ? 'Deactivate' : 'Activate'}
                                   </button>
                                   <button
-                                    onClick={() => handleDeleteStaff(staff._id)}
+                                    onClick={() => confirmDeleteStaff(staff._id, staff.name)}
                                     className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
                                     title="Delete staff member"
                                   >
@@ -472,13 +715,15 @@ export default function DoctorDashboard() {
 
             <div className="space-y-8">
               
-              {/* Quick Actions Card */}
               <div className="bg-white rounded-xl border border-gray-200 shadow-sm">
                 <div className="border-b border-gray-200 px-6 py-4">
                   <h3 className="text-lg font-semibold text-gray-900">Quick Actions</h3>
                 </div>
                 <div className="p-6 space-y-3">
-                  <button className="w-full flex items-center justify-between p-4 text-left bg-blue-50 hover:bg-blue-100 rounded-xl transition-colors group">
+                  <button 
+                    onClick={() => showToast("Feature coming soon!", "info")}
+                    className="w-full flex items-center justify-between p-4 text-left bg-blue-50 hover:bg-blue-100 rounded-xl transition-colors group"
+                  >
                     <div className="flex items-center">
                       <div className="p-2 bg-blue-100 rounded-lg mr-3 group-hover:bg-blue-200 transition-colors">
                         <FileText className="w-5 h-5 text-blue-600" />
@@ -491,7 +736,10 @@ export default function DoctorDashboard() {
                     <ChevronRight className="w-5 h-5 text-gray-400 group-hover:text-gray-600" />
                   </button>
                   
-                  <button className="w-full flex items-center justify-between p-4 text-left bg-emerald-50 hover:bg-emerald-100 rounded-xl transition-colors group">
+                  <button 
+                    onClick={() => showToast("Feature coming soon!", "info")}
+                    className="w-full flex items-center justify-between p-4 text-left bg-emerald-50 hover:bg-emerald-100 rounded-xl transition-colors group"
+                  >
                     <div className="flex items-center">
                       <div className="p-2 bg-emerald-100 rounded-lg mr-3 group-hover:bg-emerald-200 transition-colors">
                         <History className="w-5 h-5 text-emerald-600" />
@@ -504,7 +752,10 @@ export default function DoctorDashboard() {
                     <ChevronRight className="w-5 h-5 text-gray-400 group-hover:text-gray-600" />
                   </button>
                   
-                  <button className="w-full flex items-center justify-between p-4 text-left bg-purple-50 hover:bg-purple-100 rounded-xl transition-colors group">
+                  <button 
+                    onClick={() => showToast("Feature coming soon!", "info")}
+                    className="w-full flex items-center justify-between p-4 text-left bg-purple-50 hover:bg-purple-100 rounded-xl transition-colors group"
+                  >
                     <div className="flex items-center">
                       <div className="p-2 bg-purple-100 rounded-lg mr-3 group-hover:bg-purple-200 transition-colors">
                         <Pill className="w-5 h-5 text-purple-600" />
@@ -519,7 +770,6 @@ export default function DoctorDashboard() {
                 </div>
               </div>
 
-              {/* System Status Card */}
               <div className="bg-white rounded-xl border border-gray-200 shadow-sm">
                 <div className="border-b border-gray-200 px-6 py-4">
                   <h3 className="text-lg font-semibold text-gray-900">System Status</h3>
@@ -557,8 +807,8 @@ export default function DoctorDashboard() {
           </div>
         </div>
 
+        {/* ================= MODALS ================= */}
         
-        {/* Treatment Modal */}
         <AnimatePresence>
           {currentPatient && (
             <motion.div 
@@ -595,7 +845,6 @@ export default function DoctorDashboard() {
                   </div>
                 </div>
 
-                {/* Patient Info */}
                 <div className="px-8 pt-6">
                   <div className="bg-gray-50 rounded-xl p-6 mb-6">
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -658,7 +907,15 @@ export default function DoctorDashboard() {
                 <div className="border-t border-gray-200 px-8 py-6 bg-gray-50">
                   <div className="flex justify-end space-x-4">
                     <button
-                      onClick={() => setCurrentPatient(null)}
+                      onClick={() => {
+                        setConfirmationModal({
+                          isOpen: true,
+                          title: "Cancel Consultation",
+                          message: "Are you sure you want to cancel this consultation? All unsaved data will be lost.",
+                          onConfirm: () => setCurrentPatient(null),
+                          type: "warning"
+                        });
+                      }}
                       className="px-6 py-3 border border-gray-300 text-gray-700 font-medium rounded-xl hover:bg-gray-50 transition-colors"
                     >
                       Cancel
@@ -678,7 +935,6 @@ export default function DoctorDashboard() {
           )}
         </AnimatePresence>
 
-        {/* History Modal */}
         <AnimatePresence>
           {showHistoryModal && (
             <motion.div 
@@ -703,7 +959,7 @@ export default function DoctorDashboard() {
                       onClick={() => setShowHistoryModal(false)}
                       className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
                     >
-                      <XCircle className="w-6 h-6" />
+                      <X className="w-6 h-6" />
                     </button>
                   </div>
                 </div>

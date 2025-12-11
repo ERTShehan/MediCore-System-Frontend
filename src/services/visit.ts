@@ -27,11 +27,16 @@ export const getPatientHistory = async (phone: string) => {
 // Counter: Get Queue Status (Alerts & Completed List)
 export const getQueueStatus = async () => {
   const res = await api.get("/visits/status");
-  return res.data; // Returns { currentPatient, completedList }
+  return res.data; // Returns { currentPatient, completedList, allPatients }
 };
 
 // Counter: Get Details for Print
 export const getVisitDetails = async (id: string) => {
   const res = await api.get(`/visits/details/${id}`);
+  return res.data;
+};
+
+export const getAllTodayVisits = async () => {
+  const res = await api.get("/visits/today");
   return res.data;
 };
