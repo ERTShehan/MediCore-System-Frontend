@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Toaster, toast } from "react-hot-toast";
 
 // Services
-import { requestNextPatient, submitTreatment, getPatientHistory } from "../services/visit";
+import { requestNextPatient, submitTreatment, getPatientHistory, getQueueStatus } from "../services/visit";
 import { createStaff, getMyStaff, deleteStaff, toggleStaffStatus } from "../services/staff";
 
 // Icons
@@ -14,7 +14,7 @@ import {
   Stethoscope, Pill, History, UserCheck,
   ChevronRight, CheckCircle, XCircle,
   AlertCircle, MoreVertical, X, Info,
-  AlertTriangle, Check, Loader2
+  AlertTriangle, Check, Loader2, Play
 } from "lucide-react";
 
 // Types
@@ -199,6 +199,7 @@ export default function DoctorDashboard() {
   
   // Patient States
   const [currentPatient, setCurrentPatient] = useState<Visit | null>(null);
+  const [isModalOpen, setIsModalOpen] = useState(false); // NEW STATE: Control Pop-up
   const [historyList, setHistoryList] = useState<Visit[]>([]);
   const [showHistoryModal, setShowHistoryModal] = useState(false);
   const [patientLoading, setPatientLoading] = useState(false);
@@ -210,6 +211,9 @@ export default function DoctorDashboard() {
   const [showAddStaffForm, setShowAddStaffForm] = useState(false);
   const [staffLoading, setStaffLoading] = useState(true);
   const [staffFormData, setStaffFormData] = useState({ name: "", email: "", password: "" });
+
+  const [totalToday, setTotalToday] = useState<number>(0);
+  const [completedList, setCompletedList] = useState<Visit[]>([]); 
 
   // Confirmation Modal States
   const [confirmationModal, setConfirmationModal] = useState<{
@@ -226,9 +230,7 @@ export default function DoctorDashboard() {
     type: "warning"
   });
 
-  // Current Time State
   const [currentTime, setCurrentTime] = useState<string>("");
-
 
   useEffect(() => {
     const updateTime = () => {
@@ -240,6 +242,35 @@ export default function DoctorDashboard() {
     return () => clearInterval(intervalId);
   }, []);
 
+  // --- Initial Poll to check state ---
+  useEffect(() => {
+    const interval = setInterval(() => {
+      fetchStatus();
+    }, 3000);
+      
+    fetchStatus(); 
+    return () => clearInterval(interval);
+  }, []);
+
+  const fetchStatus = async () => {
+    try {
+      const data = await getQueueStatus();
+      // If there is a patient in backend, sync it (but DON'T open modal automatically)
+      if (data.currentPatient) {
+         setCurrentPatient(data.currentPatient);
+      } else {
+         // If backend says no one is in progress, update local state
+         // But only if we are not actively in a modal (to prevent jitter)
+         if (!isModalOpen) setCurrentPatient(null);
+      }
+      
+      setCompletedList(data.completedList || []);
+      setTotalToday(data.totalToday || 0); 
+    } catch (err) {
+      console.error("Queue poll error", err);
+    }
+  };
+
   useEffect(() => {
     fetchStaff();
   }, []);
@@ -248,7 +279,6 @@ export default function DoctorDashboard() {
     try {
       const res = await getMyStaff();
       setStaffList(res.data);
-      // toast.custom(() => <SuccessToast message="Staff list loaded successfully" />);
     } catch (error) {
       toast.custom(() => <ErrorToast message="Failed to load staff list" />);
       console.error("Failed to fetch staff", error);
@@ -279,6 +309,12 @@ export default function DoctorDashboard() {
 
   // --- PATIENT HANDLERS ---
   const handleRequestPatient = async () => {
+    // If we already have a patient (Resume Session)
+    if (currentPatient) {
+        setIsModalOpen(true);
+        return;
+    }
+
     setPatientLoading(true);
     const loadingToast = showToast("Checking patient queue...", "loading");
     
@@ -288,6 +324,7 @@ export default function DoctorDashboard() {
       setDiagnosis("");
       setPrescription("");
       setHistoryList([]);
+      setIsModalOpen(true); // Open modal ONLY when button is clicked
       toast.dismiss(loadingToast);
       showToast(`Patient ${patient.patientName} loaded successfully`, "success");
     } catch (error: any) {
@@ -310,6 +347,8 @@ export default function DoctorDashboard() {
       toast.dismiss(loadingToast);
       showToast("Treatment submitted successfully!", "success");
       setCurrentPatient(null);
+      setIsModalOpen(false); // Close Modal
+      fetchStatus();
     } catch (error) {
       toast.dismiss(loadingToast);
       showToast("Failed to save treatment. Please try again.", "error");
@@ -393,18 +432,8 @@ export default function DoctorDashboard() {
   return (
     <Layout>
       <div className="min-h-screen bg-gray-50">
-        {/* Toast Container */}
-        <Toaster
-          position="top-right"
-          reverseOrder={false}
-          gutter={8}
-          containerClassName="!z-[1000]"
-          toastOptions={{
-            duration: 4000,
-          }}
-        />
+        <Toaster position="top-right" reverseOrder={false} gutter={8} containerClassName="!z-[1000]" toastOptions={{ duration: 4000 }} />
 
-        {/* Confirmation Modal */}
         <ConfirmationModal
           isOpen={confirmationModal.isOpen}
           onClose={() => setConfirmationModal({ ...confirmationModal, isOpen: false })}
@@ -419,7 +448,6 @@ export default function DoctorDashboard() {
           <div className="flex justify-between items-center">
             <div>
               <h1 className="text-2xl font-bold text-gray-900">Doctor Dashboard</h1>
-              <p className="text-gray-600 text-sm mt-1">Manage patients and staff efficiently</p>
             </div>
             <div className="flex items-center space-x-4">
               <div className="flex items-center space-x-2 text-sm bg-gray-50 px-4 py-2 rounded-lg">
@@ -453,20 +481,22 @@ export default function DoctorDashboard() {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm font-medium text-gray-600">Patient in Queue</p>
-                  <p className="text-3xl font-bold text-gray-900 mt-2">{currentPatient ? "1" : "0"}</p>
+                  <p className="text-3xl font-bold text-gray-900 mt-2">{completedList.length}</p>
                 </div>
                 <div className="p-3 bg-purple-50 rounded-lg">
                   <Users className="w-6 h-6 text-purple-600" />
                 </div>
               </div>
-              <p className="text-sm text-gray-500 mt-2">Currently consulting: {currentPatient ? currentPatient.patientName : "None"}</p>
+              <p className="text-sm text-gray-500 mt-2">
+                Currently consulting: {currentPatient ? currentPatient.patientName : "None"}
+              </p>
             </div>
 
             <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm hover:shadow-md transition-shadow">
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm font-medium text-gray-600">Today's Appointments</p>
-                  <p className="text-3xl font-bold text-gray-900 mt-2">0</p>
+                  <p className="text-3xl font-bold text-gray-900 mt-2">{totalToday}</p>
                 </div>
                 <div className="p-3 bg-emerald-50 rounded-lg">
                   <Calendar className="w-6 h-6 text-emerald-600" />
@@ -523,7 +553,7 @@ export default function DoctorDashboard() {
                     
                     <button
                       onClick={handleRequestPatient}
-                      disabled={patientLoading || !!currentPatient}
+                      disabled={patientLoading}
                       className={`inline-flex items-center justify-center px-8 py-4 rounded-xl font-medium text-white transition-all ${
                         currentPatient 
                           ? 'bg-emerald-600 hover:bg-emerald-700'
@@ -537,8 +567,8 @@ export default function DoctorDashboard() {
                         </>
                       ) : currentPatient ? (
                         <>
-                          <UserCheck className="w-5 h-5 mr-2" />
-                          Patient In-Session
+                          <Play className="w-5 h-5 mr-2" />
+                          Resume Consultation
                         </>
                       ) : (
                         <>
@@ -551,6 +581,7 @@ export default function DoctorDashboard() {
                 </div>
               </div>
 
+              {/* Staff Management Section - Kept as is */}
               <div className="bg-white rounded-xl border border-gray-200 shadow-sm">
                 <div className="border-b border-gray-200 px-6 py-4">
                   <div className="flex items-center justify-between">
@@ -806,214 +837,208 @@ export default function DoctorDashboard() {
             </div>
           </div>
         </div>
+      </div>
 
-        {/* ================= MODALS ================= */}
-        
-        <AnimatePresence>
-          {currentPatient && (
+      {/* ================= MODALS ================= */}
+      
+      <AnimatePresence>
+        {isModalOpen && currentPatient && (
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"
+          >
             <motion.div 
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col"
             >
-              <motion.div 
-                initial={{ scale: 0.95, opacity: 0 }}
-                animate={{ scale: 1, opacity: 1 }}
-                exit={{ scale: 0.95, opacity: 0 }}
-                className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col"
-              >
-                {/* Modal Header */}
-                <div className="bg-linear-to-r from-blue-600 to-blue-700 px-8 py-6 text-white">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center space-x-3">
-                      <div className="p-2 bg-white/20 rounded-lg">
-                        <Stethoscope className="w-6 h-6" />
-                      </div>
-                      <div>
-                        <h2 className="text-2xl font-bold">Patient Consultation</h2>
-                        <p className="text-blue-100">Complete diagnosis and prescription</p>
-                      </div>
+              {/* Modal Header */}
+              <div className="bg-linear-to-r from-blue-600 to-blue-700 px-8 py-6 text-white">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-3">
+                    <div className="p-2 bg-white/20 rounded-lg">
+                      <Stethoscope className="w-6 h-6" />
                     </div>
-                    <button
-                      onClick={handleViewHistory}
-                      className="flex items-center px-4 py-2 bg-white/20 hover:bg-white/30 rounded-lg font-medium transition-colors"
-                    >
-                      <History className="w-4 h-4 mr-2" />
-                      View History
-                    </button>
-                  </div>
-                </div>
-
-                <div className="px-8 pt-6">
-                  <div className="bg-gray-50 rounded-xl p-6 mb-6">
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                      <div>
-                        <p className="text-sm font-medium text-gray-600 mb-1">Patient Name</p>
-                        <p className="text-lg font-semibold text-gray-900">{currentPatient.patientName}</p>
-                      </div>
-                      <div>
-                        <p className="text-sm font-medium text-gray-600 mb-1">Age & Contact</p>
-                        <p className="text-lg font-semibold text-gray-900">
-                          {currentPatient.age} years • {currentPatient.phone}
-                        </p>
-                      </div>
-                      <div>
-                        <p className="text-sm font-medium text-gray-600 mb-1">Token Number</p>
-                        <div className="inline-flex items-center px-4 py-2 bg-blue-100 text-blue-700 rounded-lg font-bold">
-                          #{currentPatient.appointmentNumber}
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="px-8 pb-8 overflow-y-auto flex-1">
-                  <form id="treatment-form" onSubmit={handleSubmitTreatment} className="space-y-8">
                     <div>
-                      <label className="block text-sm font-semibold text-gray-900 mb-3">
-                        <div className="flex items-center">
-                          <FileText className="w-5 h-5 text-blue-600 mr-2" />
-                          Diagnosis
-                        </div>
-                      </label>
-                      <textarea
-                        required
-                        value={diagnosis}
-                        onChange={(e) => setDiagnosis(e.target.value)}
-                        className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none min-h-[120px] resize-none"
-                        placeholder="Enter medical diagnosis..."
-                      />
+                      <h2 className="text-2xl font-bold">Patient Consultation</h2>
+                      <p className="text-blue-100">Complete diagnosis and prescription</p>
                     </div>
+                  </div>
+                  <button
+                    onClick={handleViewHistory}
+                    className="flex items-center px-4 py-2 bg-white/20 hover:bg-white/30 rounded-lg font-medium transition-colors"
+                  >
+                    <History className="w-4 h-4 mr-2" />
+                    View History
+                  </button>
+                </div>
+              </div>
 
+              <div className="px-8 pt-6">
+                <div className="bg-gray-50 rounded-xl p-6 mb-6">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                     <div>
-                      <label className="block text-sm font-semibold text-gray-900 mb-3">
-                        <div className="flex items-center">
-                          <Pill className="w-5 h-5 text-green-600 mr-2" />
-                          Prescription
-                        </div>
-                      </label>
-                      <textarea
-                        required
-                        value={prescription}
-                        onChange={(e) => setPrescription(e.target.value)}
-                        className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none min-h-40 font-mono text-sm bg-gray-50"
-                        placeholder="Enter prescription details..."
-                      />
+                      <p className="text-sm font-medium text-gray-600 mb-1">Patient Name</p>
+                      <p className="text-lg font-semibold text-gray-900">{currentPatient.patientName}</p>
                     </div>
-                  </form>
-                </div>
-
-                <div className="border-t border-gray-200 px-8 py-6 bg-gray-50">
-                  <div className="flex justify-end space-x-4">
-                    <button
-                      onClick={() => {
-                        setConfirmationModal({
-                          isOpen: true,
-                          title: "Cancel Consultation",
-                          message: "Are you sure you want to cancel this consultation? All unsaved data will be lost.",
-                          onConfirm: () => setCurrentPatient(null),
-                          type: "warning"
-                        });
-                      }}
-                      className="px-6 py-3 border border-gray-300 text-gray-700 font-medium rounded-xl hover:bg-gray-50 transition-colors"
-                    >
-                      Cancel
-                    </button>
-                    <button
-                      type="submit"
-                      form="treatment-form"
-                      className="px-6 py-3 bg-emerald-600 text-white font-medium rounded-xl hover:bg-emerald-700 transition-colors flex items-center"
-                    >
-                      <CheckCircle className="w-5 h-5 mr-2" />
-                      Complete Consultation
-                    </button>
-                  </div>
-                </div>
-              </motion.div>
-            </motion.div>
-          )}
-        </AnimatePresence>
-
-        <AnimatePresence>
-          {showHistoryModal && (
-            <motion.div 
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"
-            >
-              <div className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl max-h-[90vh] overflow-hidden">
-                <div className="border-b border-gray-200 px-8 py-6">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center space-x-3">
-                      <div className="p-2 bg-blue-50 rounded-lg">
-                        <History className="w-6 h-6 text-blue-600" />
-                      </div>
-                      <div>
-                        <h2 className="text-xl font-bold text-gray-900">Medical History</h2>
-                        <p className="text-gray-600">Past consultations for {currentPatient?.patientName}</p>
+                    <div>
+                      <p className="text-sm font-medium text-gray-600 mb-1">Age & Contact</p>
+                      <p className="text-lg font-semibold text-gray-900">
+                        {currentPatient.age} years • {currentPatient.phone}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-gray-600 mb-1">Token Number</p>
+                      <div className="inline-flex items-center px-4 py-2 bg-blue-100 text-blue-700 rounded-lg font-bold">
+                        #{currentPatient.appointmentNumber}
                       </div>
                     </div>
-                    <button
-                      onClick={() => setShowHistoryModal(false)}
-                      className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
-                    >
-                      <X className="w-6 h-6" />
-                    </button>
                   </div>
                 </div>
+              </div>
 
-                <div className="px-8 py-6 overflow-y-auto max-h-[60vh]">
-                  {historyList.length === 0 ? (
-                    <div className="text-center py-12">
-                      <History className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-                      <h3 className="text-lg font-semibold text-gray-900 mb-2">No History Found</h3>
-                      <p className="text-gray-600">No past consultations available for this patient</p>
-                    </div>
-                  ) : (
-                    <div className="space-y-4">
-                      {historyList.map((record) => (
-                        <div key={record._id} className="border border-gray-200 rounded-xl p-6 hover:border-blue-300 transition-colors">
-                          <div className="flex items-start justify-between mb-4">
-                            <div>
-                              <h4 className="font-semibold text-gray-900 mb-1">Consultation</h4>
-                              <p className="text-sm text-gray-500">
-                                {record.date ? new Date(record.date).toLocaleDateString('en-US', {
-                                  weekday: 'long',
-                                  year: 'numeric',
-                                  month: 'long',
-                                  day: 'numeric'
-                                }) : 'Date not available'}
-                              </p>
-                            </div>
-                            <span className="px-3 py-1 bg-blue-100 text-blue-700 text-sm font-medium rounded-full">
-                              Token #{record.appointmentNumber}
-                            </span>
-                          </div>
-                          
-                          <div className="space-y-4">
-                            <div>
-                              <p className="text-sm font-medium text-gray-700 mb-2">Diagnosis</p>
-                              <p className="text-gray-900 bg-gray-50 p-4 rounded-lg">{record.diagnosis}</p>
-                            </div>
-                            <div>
-                              <p className="text-sm font-medium text-gray-700 mb-2">Prescription</p>
-                              <div className="bg-white p-4 rounded-lg border border-gray-200 font-mono text-sm whitespace-pre-wrap">
-                                {record.prescription}
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
+              <div className="px-8 pb-8 overflow-y-auto flex-1">
+                <form id="treatment-form" onSubmit={handleSubmitTreatment} className="space-y-8">
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-900 mb-3">
+                      <div className="flex items-center">
+                        <FileText className="w-5 h-5 text-blue-600 mr-2" />
+                        Diagnosis
+                      </div>
+                    </label>
+                    <textarea
+                      required
+                      value={diagnosis}
+                      onChange={(e) => setDiagnosis(e.target.value)}
+                      className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none min-h-[120px] resize-none"
+                      placeholder="Enter medical diagnosis..."
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-900 mb-3">
+                      <div className="flex items-center">
+                        <Pill className="w-5 h-5 text-green-600 mr-2" />
+                        Prescription
+                      </div>
+                    </label>
+                    <textarea
+                      required
+                      value={prescription}
+                      onChange={(e) => setPrescription(e.target.value)}
+                      className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none min-h-40 font-mono text-sm bg-gray-50"
+                      placeholder="Enter prescription details..."
+                    />
+                  </div>
+                </form>
+              </div>
+
+              <div className="border-t border-gray-200 px-8 py-6 bg-gray-50">
+                <div className="flex justify-end space-x-4">
+                  <button
+                    onClick={() => {
+                        setIsModalOpen(false); // Just close, don't clear patient to allow resume
+                    }}
+                    className="px-6 py-3 border border-gray-300 text-gray-700 font-medium rounded-xl hover:bg-gray-50 transition-colors"
+                  >
+                    Close (Resume Later)
+                  </button>
+                  <button
+                    type="submit"
+                    form="treatment-form"
+                    className="px-6 py-3 bg-emerald-600 text-white font-medium rounded-xl hover:bg-emerald-700 transition-colors flex items-center"
+                  >
+                    <CheckCircle className="w-5 h-5 mr-2" />
+                    Complete Consultation
+                  </button>
                 </div>
               </div>
             </motion.div>
-          )}
-        </AnimatePresence>
-      </div>
-    </Layout>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {showHistoryModal && (
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"
+          >
+            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl max-h-[90vh] overflow-hidden">
+              <div className="border-b border-gray-200 px-8 py-6">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-3">
+                    <div className="p-2 bg-blue-50 rounded-lg">
+                      <History className="w-6 h-6 text-blue-600" />
+                    </div>
+                    <div>
+                      <h2 className="text-xl font-bold text-gray-900">Medical History</h2>
+                      <p className="text-gray-600">Past consultations for {currentPatient?.patientName}</p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => setShowHistoryModal(false)}
+                    className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+                  >
+                    <X className="w-6 h-6" />
+                  </button>
+                </div>
+              </div>
+
+              <div className="px-8 py-6 overflow-y-auto max-h-[60vh]">
+                {historyList.length === 0 ? (
+                  <div className="text-center py-12">
+                    <History className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+                    <h3 className="text-lg font-semibold text-gray-900 mb-2">No History Found</h3>
+                    <p className="text-gray-600">No past consultations available for this patient</p>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {historyList.map((record) => (
+                      <div key={record._id} className="border border-gray-200 rounded-xl p-6 hover:border-blue-300 transition-colors">
+                        <div className="flex items-start justify-between mb-4">
+                          <div>
+                            <h4 className="font-semibold text-gray-900 mb-1">Consultation</h4>
+                            <p className="text-sm text-gray-500">
+                              {record.date ? new Date(record.date).toLocaleDateString('en-US', {
+                                weekday: 'long',
+                                year: 'numeric',
+                                month: 'long',
+                                day: 'numeric'
+                              }) : 'Date not available'}
+                            </p>
+                          </div>
+                          <span className="px-3 py-1 bg-blue-100 text-blue-700 text-sm font-medium rounded-full">
+                            Token #{record.appointmentNumber}
+                          </span>
+                        </div>
+                        
+                        <div className="space-y-4">
+                          <div>
+                            <p className="text-sm font-medium text-gray-700 mb-2">Diagnosis</p>
+                            <p className="text-gray-900 bg-gray-50 p-4 rounded-lg">{record.diagnosis}</p>
+                          </div>
+                          <div>
+                            <p className="text-sm font-medium text-gray-700 mb-2">Prescription</p>
+                            <div className="bg-white p-4 rounded-lg border border-gray-200 font-mono text-sm whitespace-pre-wrap">
+                              {record.prescription}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+  </Layout>
   );
 }
