@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from "react";
 import Layout from "../components/Layout";
 import { motion, AnimatePresence } from "framer-motion";
 import { createVisit, getQueueStatus, getVisitDetails, getAllTodayVisits } from "../services/visit";
+import { useTheme } from "../hooks/useTheme";
 
 // Icons
 import {
@@ -33,6 +34,8 @@ interface VisitData {
 }
 
 export default function CounterDashboard() {
+  const { theme } = useTheme();
+
   // Registration Form
   const [formData, setFormData] = useState({ patientName: "", age: "", phone: "" });
   const [registerLoading, setRegisterLoading] = useState(false);
@@ -44,7 +47,7 @@ export default function CounterDashboard() {
   const [completedList, setCompletedList] = useState<VisitData[]>([]);
   const [totalToday, setTotalToday] = useState<number>(0);
 
-  // --- NEW STATES FOR MODAL ---
+  //NEW STATES FOR MODAL
   const [showAllPatientsModal, setShowAllPatientsModal] = useState(false);
   const [allPatientsList, setAllPatientsList] = useState<VisitData[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
@@ -276,8 +279,8 @@ export default function CounterDashboard() {
           exit={{ y: -50, opacity: 0 }}
           className={`fixed top-4 right-4 z-50 px-6 py-3 rounded-lg shadow-lg flex items-center space-x-3 ${
             notification.type === 'success'
-              ? 'bg-emerald-50 border border-emerald-200 text-emerald-800'
-              : 'bg-red-50 border border-red-200 text-red-800'
+              ? theme === 'dark' ? 'bg-emerald-900/50 border border-emerald-800 text-emerald-200' : 'bg-emerald-50 border border-emerald-200 text-emerald-800'
+              : theme === 'dark' ? 'bg-red-900/50 border border-red-800 text-red-200' : 'bg-red-50 border border-red-200 text-red-800'
           }`}
         >
           {notification.type === 'success' ? (
@@ -289,16 +292,21 @@ export default function CounterDashboard() {
         </motion.div>
       )}
 
-      <div className="min-h-screen bg-gray-50">
+      <div className={`min-h-screen transition-colors duration-300 ${
+        theme === 'dark' ? 'bg-gray-900' : 'bg-gray-50'
+      }`}>
         {/* Header */}
-        <div className="bg-white border-b border-gray-200 px-8 py-6">
+        <div className={`border-b px-8 py-6 transition-colors duration-300 ${
+          theme === 'dark' ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'
+        }`}>
           <div className="flex justify-between items-center">
             <div>
-              <h1 className="text-2xl font-bold text-gray-900">Counter Dashboard</h1>
+              <h1 className={`text-2xl font-bold ${
+                theme === 'dark' ? 'text-white' : 'text-gray-900'
+              }`}>Counter Dashboard</h1>
             </div>
             <div className="flex items-center space-x-4">
               
-              {/* --- NEW BUTTON: TODAY REGISTERED PATIENT --- */}
               <button
                 onClick={handleViewAllPatients}
                 className="inline-flex items-center px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors shadow-sm"
@@ -310,55 +318,67 @@ export default function CounterDashboard() {
               <button
                 onClick={handleManualRefresh}
                 disabled={isRefreshing}
-                className="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 transition-colors"
+                className={`inline-flex items-center px-4 py-2 border text-sm font-medium rounded-lg transition-colors ${
+                  theme === 'dark' 
+                    ? 'bg-gray-700 border-gray-600 text-gray-200 hover:bg-gray-600' 
+                    : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50'
+                }`}
               >
                 <RefreshCw className={`w-4 h-4 mr-2 ${isRefreshing ? 'animate-spin' : ''}`} />
                 Refresh(Auto Refresh)
               </button>
-              {/* <div className="text-sm text-gray-500">
-                Auto-refreshing every 3 seconds
-              </div> */}
             </div>
           </div>
         </div>
 
         <div className="p-8 space-y-8">
-          {/* ================= SECTION 1: CURRENT STATUS ================= */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             {/* Current Patient Card */}
-            <div className="lg:col-span-2 bg-white rounded-xl border border-gray-200 shadow-sm p-6">
+            <div className={`lg:col-span-2 rounded-xl border shadow-sm p-6 transition-colors duration-300 ${
+              theme === 'dark' ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'
+            }`}>
               <div className="flex items-center justify-between mb-6">
                 <div className="flex items-center">
-                  <div className="p-2 bg-blue-50 rounded-lg mr-3">
-                    <UserCheck className="w-6 h-6 text-blue-600" />
+                  <div className={`p-2 rounded-lg mr-3 ${
+                    theme === 'dark' ? 'bg-blue-900/30' : 'bg-blue-50'
+                  }`}>
+                    <UserCheck className={`w-6 h-6 ${theme === 'dark' ? 'text-blue-400' : 'text-blue-600'}`} />
                   </div>
                   <div>
-                    <h2 className="text-lg font-semibold text-gray-900">Now Consulting</h2>
-                    <p className="text-sm text-gray-500">Live patient status</p>
+                    <h2 className={`text-lg font-semibold ${theme === 'dark' ? 'text-white' : 'text-gray-900'}`}>Now Consulting</h2>
+                    <p className={`text-sm ${theme === 'dark' ? 'text-gray-400' : 'text-gray-500'}`}>Live patient status</p>
                   </div>
                 </div>
-                <div className="flex items-center text-sm text-gray-500">
+                <div className={`flex items-center text-sm ${theme === 'dark' ? 'text-gray-400' : 'text-gray-500'}`}>
                   <Clock className="w-4 h-4 mr-1" />
                   {new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                 </div>
               </div>
 
               {currentPatient ? (
-                <div className="bg-linear-to-r from-blue-50 to-indigo-50 border border-blue-100 rounded-xl p-6">
+                <div className={`border rounded-xl p-6 transition-colors duration-300 ${
+                  theme === 'dark' 
+                    ? 'bg-linear-to-r from-blue-900/40 to-indigo-900/40 border-blue-800' 
+                    : 'bg-linear-to-r from-blue-50 to-indigo-50 border-blue-100'
+                }`}>
                   <div className="flex items-center justify-between">
                     <div>
-                      <div className="text-sm font-medium text-blue-600 uppercase tracking-wider mb-1">
+                      <div className={`text-sm font-medium uppercase tracking-wider mb-1 ${
+                        theme === 'dark' ? 'text-blue-300' : 'text-blue-600'
+                      }`}>
                         Currently with Doctor
                       </div>
                       <div className="flex items-baseline space-x-4">
-                        <span className="text-4xl font-bold text-gray-900">
+                        <span className={`text-4xl font-bold ${theme === 'dark' ? 'text-white' : 'text-gray-900'}`}>
                           Token #{currentPatient.appointmentNumber}
                         </span>
-                        <span className="text-lg font-semibold text-gray-700">
+                        <span className={`text-lg font-semibold ${theme === 'dark' ? 'text-gray-300' : 'text-gray-700'}`}>
                           {currentPatient.patientName}
                         </span>
                       </div>
-                      <div className="flex items-center space-x-4 mt-4 text-sm text-gray-600">
+                      <div className={`flex items-center space-x-4 mt-4 text-sm ${
+                        theme === 'dark' ? 'text-gray-400' : 'text-gray-600'
+                      }`}>
                         <span className="flex items-center">
                           <Users className="w-4 h-4 mr-1" />
                           Age: {currentPatient.age}
@@ -373,62 +393,72 @@ export default function CounterDashboard() {
                   </div>
                 </div>
               ) : (
-                <div className="bg-gray-50 border border-gray-200 rounded-xl p-8 text-center">
-                  <Clock className="w-12 h-12 text-gray-300 mx-auto mb-3" />
-                  <h3 className="text-lg font-semibold text-gray-700 mb-2">No Active Consultation</h3>
-                  <p className="text-gray-500">The doctor is currently not seeing any patient</p>
+                <div className={`border rounded-xl p-8 text-center transition-colors duration-300 ${
+                  theme === 'dark' ? 'bg-gray-900/50 border-gray-700' : 'bg-gray-50 border-gray-200'
+                }`}>
+                  <Clock className={`w-12 h-12 mx-auto mb-3 ${theme === 'dark' ? 'text-gray-600' : 'text-gray-300'}`} />
+                  <h3 className={`text-lg font-semibold mb-2 ${theme === 'dark' ? 'text-gray-300' : 'text-gray-700'}`}>No Active Consultation</h3>
+                  <p className={theme === 'dark' ? 'text-gray-500' : 'text-gray-500'}>The doctor is currently not seeing any patient</p>
                 </div>
               )}
             </div>
 
             {/* Queue Stats Card */}
-            <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
+            <div className={`rounded-xl border shadow-sm p-6 transition-colors duration-300 ${
+              theme === 'dark' ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'
+            }`}>
               <div className="flex items-center mb-6">
-                <div className="p-2 bg-purple-50 rounded-lg mr-3">
-                  <Users className="w-6 h-6 text-purple-600" />
+                <div className={`p-2 rounded-lg mr-3 ${theme === 'dark' ? 'bg-purple-900/30' : 'bg-purple-50'}`}>
+                  <Users className={`w-6 h-6 ${theme === 'dark' ? 'text-purple-400' : 'text-purple-600'}`} />
                 </div>
                 <div>
-                  <h2 className="text-lg font-semibold text-gray-900">Queue Overview</h2>
-                  <p className="text-sm text-gray-500">Real-time statistics</p>
+                  <h2 className={`text-lg font-semibold ${theme === 'dark' ? 'text-white' : 'text-gray-900'}`}>Queue Overview</h2>
+                  <p className={`text-sm ${theme === 'dark' ? 'text-gray-400' : 'text-gray-500'}`}>Real-time statistics</p>
                 </div>
               </div>
 
               <div className="space-y-4">
-                <div className="flex items-center justify-between p-3 bg-blue-50 rounded-lg">
+                <div className={`flex items-center justify-between p-3 rounded-lg ${
+                  theme === 'dark' ? 'bg-blue-900/20' : 'bg-blue-50'
+                }`}>
                   <div className="flex items-center">
-                    <Users className="w-5 h-5 text-blue-600 mr-3" />
+                    <Users className={`w-5 h-5 mr-3 ${theme === 'dark' ? 'text-blue-400' : 'text-blue-600'}`} />
                     <div>
-                      <p className="text-sm font-medium text-gray-700">Today's Total</p>
-                      <p className="text-xs text-gray-500">All patients (Reg)</p>
+                      <p className={`text-sm font-medium ${theme === 'dark' ? 'text-gray-200' : 'text-gray-700'}`}>Today's Total</p>
+                      <p className={`text-xs ${theme === 'dark' ? 'text-gray-400' : 'text-gray-500'}`}>All patients (Reg)</p>
                     </div>
                   </div>
-                  <span className="text-2xl font-bold text-gray-900">
+                  <span className={`text-2xl font-bold ${theme === 'dark' ? 'text-white' : 'text-gray-900'}`}>
                     {totalToday}
                   </span>
                 </div>
 
-                <div className="flex items-center justify-between p-3 bg-emerald-50 rounded-lg">
+                <div className={`flex items-center justify-between p-3 rounded-lg ${
+                  theme === 'dark' ? 'bg-emerald-900/20' : 'bg-emerald-50'
+                }`}>
                   <div className="flex items-center">
-                    <CheckCircle className="w-5 h-5 text-emerald-600 mr-3" />
+                    <CheckCircle className={`w-5 h-5 mr-3 ${theme === 'dark' ? 'text-emerald-400' : 'text-emerald-600'}`} />
                     <div>
-                      <p className="text-sm font-medium text-gray-700">Completed</p>
-                      <p className="text-xs text-gray-500">Ready for bill</p>
+                      <p className={`text-sm font-medium ${theme === 'dark' ? 'text-gray-200' : 'text-gray-700'}`}>Completed</p>
+                      <p className={`text-xs ${theme === 'dark' ? 'text-gray-400' : 'text-gray-500'}`}>Ready for bill</p>
                     </div>
                   </div>
-                  <span className="text-2xl font-bold text-gray-900">
+                  <span className={`text-2xl font-bold ${theme === 'dark' ? 'text-white' : 'text-gray-900'}`}>
                     {completedList.length}
                   </span>
                 </div>
 
-                <div className="flex items-center justify-between p-3 bg-amber-50 rounded-lg">
+                <div className={`flex items-center justify-between p-3 rounded-lg ${
+                  theme === 'dark' ? 'bg-amber-900/20' : 'bg-amber-50'
+                }`}>
                   <div className="flex items-center">
-                    <Clock className="w-5 h-5 text-amber-600 mr-3" />
+                    <Clock className={`w-5 h-5 mr-3 ${theme === 'dark' ? 'text-amber-400' : 'text-amber-600'}`} />
                     <div>
-                      <p className="text-sm font-medium text-gray-700">In Progress</p>
-                      <p className="text-xs text-gray-500">With doctor</p>
+                      <p className={`text-sm font-medium ${theme === 'dark' ? 'text-gray-200' : 'text-gray-700'}`}>In Progress</p>
+                      <p className={`text-xs ${theme === 'dark' ? 'text-gray-400' : 'text-gray-500'}`}>With doctor</p>
                     </div>
                   </div>
-                  <span className="text-2xl font-bold text-gray-900">
+                  <span className={`text-2xl font-bold ${theme === 'dark' ? 'text-white' : 'text-gray-900'}`}>
                     {currentPatient ? 1 : 0}
                   </span>
                 </div>
@@ -438,17 +468,18 @@ export default function CounterDashboard() {
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
             
-            {/* Left Column - Registration Form */}
             <div className="lg:col-span-1">
-              <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
-                <div className="border-b border-gray-200 px-6 py-4">
+              <div className={`rounded-xl border shadow-sm overflow-hidden transition-colors duration-300 ${
+                theme === 'dark' ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'
+              }`}>
+                <div className={`border-b px-6 py-4 ${theme === 'dark' ? 'border-gray-700' : 'border-gray-200'}`}>
                   <div className="flex items-center">
-                    <div className="p-2 bg-blue-50 rounded-lg mr-3">
-                      <UserPlus className="w-5 h-5 text-blue-600" />
+                    <div className={`p-2 rounded-lg mr-3 ${theme === 'dark' ? 'bg-blue-900/30' : 'bg-blue-50'}`}>
+                      <UserPlus className={`w-5 h-5 ${theme === 'dark' ? 'text-blue-400' : 'text-blue-600'}`} />
                     </div>
                     <div>
-                      <h2 className="text-lg font-semibold text-gray-900">New Patient Registration</h2>
-                      <p className="text-sm text-gray-500">Register and generate token</p>
+                      <h2 className={`text-lg font-semibold ${theme === 'dark' ? 'text-white' : 'text-gray-900'}`}>New Patient Registration</h2>
+                      <p className={`text-sm ${theme === 'dark' ? 'text-gray-400' : 'text-gray-500'}`}>Register and generate token</p>
                     </div>
                   </div>
                 </div>
@@ -456,7 +487,7 @@ export default function CounterDashboard() {
                 <div className="p-6">
                   <form onSubmit={handleRegister} className="space-y-6">
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                      <label className={`block text-sm font-medium mb-2 ${theme === 'dark' ? 'text-gray-300' : 'text-gray-700'}`}>
                         Full Name
                       </label>
                       <input
@@ -465,13 +496,17 @@ export default function CounterDashboard() {
                         required
                         value={formData.patientName}
                         onChange={e => setFormData({...formData, patientName: e.target.value})}
-                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition"
+                        className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition ${
+                          theme === 'dark' 
+                            ? 'bg-gray-900 border-gray-600 text-white placeholder-gray-500' 
+                            : 'border-gray-300 bg-white text-gray-900'
+                        }`}
                       />
                     </div>
 
                     <div className="grid grid-cols-2 gap-4">
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                        <label className={`block text-sm font-medium mb-2 ${theme === 'dark' ? 'text-gray-300' : 'text-gray-700'}`}>
                           Age
                         </label>
                         <input
@@ -480,11 +515,15 @@ export default function CounterDashboard() {
                           required
                           value={formData.age}
                           onChange={e => setFormData({...formData, age: e.target.value})}
-                          className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition"
+                          className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition ${
+                            theme === 'dark' 
+                              ? 'bg-gray-900 border-gray-600 text-white placeholder-gray-500' 
+                              : 'border-gray-300 bg-white text-gray-900'
+                          }`}
                         />
                       </div>
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                        <label className={`block text-sm font-medium mb-2 ${theme === 'dark' ? 'text-gray-300' : 'text-gray-700'}`}>
                           Phone Number
                         </label>
                         <input
@@ -493,7 +532,11 @@ export default function CounterDashboard() {
                           required
                           value={formData.phone}
                           onChange={e => setFormData({...formData, phone: e.target.value})}
-                          className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition"
+                          className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition ${
+                            theme === 'dark' 
+                              ? 'bg-gray-900 border-gray-600 text-white placeholder-gray-500' 
+                              : 'border-gray-300 bg-white text-gray-900'
+                          }`}
                         />
                       </div>
                     </div>
@@ -525,16 +568,20 @@ export default function CounterDashboard() {
                     <motion.div
                       initial={{ scale: 0.95, opacity: 0 }}
                       animate={{ scale: 1, opacity: 1 }}
-                      className="mt-6 p-4 bg-linear-to-r from-emerald-50 to-green-50 border border-emerald-200 rounded-xl"
+                      className={`mt-6 p-4 border rounded-xl ${
+                        theme === 'dark' 
+                          ? 'bg-emerald-900/20 border-emerald-800' 
+                          : 'bg-linear-to-r from-emerald-50 to-green-50 border-emerald-200'
+                      }`}
                     >
                       <div className="flex items-center justify-between">
                         <div>
-                          <p className="text-sm font-medium text-emerald-700">Last Generated Token</p>
-                          <p className="text-xs text-emerald-600">Successfully registered</p>
+                          <p className={`text-sm font-medium ${theme === 'dark' ? 'text-emerald-300' : 'text-emerald-700'}`}>Last Generated Token</p>
+                          <p className={`text-xs ${theme === 'dark' ? 'text-emerald-400' : 'text-emerald-600'}`}>Successfully registered</p>
                         </div>
                         <div className="text-right">
-                          <p className="text-3xl font-bold text-emerald-900">#{registeredToken}</p>
-                          <p className="text-xs text-emerald-600 mt-1">Ready for consultation</p>
+                          <p className={`text-3xl font-bold ${theme === 'dark' ? 'text-emerald-200' : 'text-emerald-900'}`}>#{registeredToken}</p>
+                          <p className={`text-xs mt-1 ${theme === 'dark' ? 'text-emerald-400' : 'text-emerald-600'}`}>Ready for consultation</p>
                         </div>
                       </div>
                     </motion.div>
@@ -545,19 +592,23 @@ export default function CounterDashboard() {
 
             {/* Right Column - Completed Patients */}
             <div className="lg:col-span-2">
-              <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
-                <div className="border-b border-gray-200 px-6 py-4">
+              <div className={`rounded-xl border shadow-sm overflow-hidden transition-colors duration-300 ${
+                theme === 'dark' ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'
+              }`}>
+                <div className={`border-b px-6 py-4 ${theme === 'dark' ? 'border-gray-700' : 'border-gray-200'}`}>
                   <div className="flex items-center justify-between">
                     <div className="flex items-center">
-                      <div className="p-2 bg-emerald-50 rounded-lg mr-3">
-                        <CheckCircle className="w-5 h-5 text-emerald-600" />
+                      <div className={`p-2 rounded-lg mr-3 ${theme === 'dark' ? 'bg-emerald-900/30' : 'bg-emerald-50'}`}>
+                        <CheckCircle className={`w-5 h-5 ${theme === 'dark' ? 'text-emerald-400' : 'text-emerald-600'}`} />
                       </div>
                       <div>
-                        <h2 className="text-lg font-semibold text-gray-900">Completed Treatments</h2>
-                        <p className="text-sm text-gray-500">Ready for billing and discharge</p>
+                        <h2 className={`text-lg font-semibold ${theme === 'dark' ? 'text-white' : 'text-gray-900'}`}>Completed Treatments</h2>
+                        <p className={`text-sm ${theme === 'dark' ? 'text-gray-400' : 'text-gray-500'}`}>Ready for billing and discharge</p>
                       </div>
                     </div>
-                    <span className="px-3 py-1 bg-emerald-100 text-emerald-800 text-sm font-medium rounded-full">
+                    <span className={`px-3 py-1 text-sm font-medium rounded-full ${
+                      theme === 'dark' ? 'bg-emerald-900/50 text-emerald-300' : 'bg-emerald-100 text-emerald-800'
+                    }`}>
                       {completedList.length} patients
                     </span>
                   </div>
@@ -566,42 +617,44 @@ export default function CounterDashboard() {
                 <div className="overflow-x-auto">
                   {completedList.length === 0 ? (
                     <div className="py-16 text-center">
-                      <CheckCircle className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-                      <h3 className="text-lg font-semibold text-gray-900 mb-2">No Completed Treatments</h3>
-                      <p className="text-gray-500 max-w-md mx-auto">
+                      <CheckCircle className={`w-16 h-16 mx-auto mb-4 ${theme === 'dark' ? 'text-gray-600' : 'text-gray-300'}`} />
+                      <h3 className={`text-lg font-semibold mb-2 ${theme === 'dark' ? 'text-gray-300' : 'text-gray-900'}`}>No Completed Treatments</h3>
+                      <p className={`max-w-md mx-auto ${theme === 'dark' ? 'text-gray-500' : 'text-gray-500'}`}>
                         Patients who have completed their consultation will appear here for billing.
                       </p>
                     </div>
                   ) : (
                     <table className="w-full">
                       <thead>
-                        <tr className="bg-gray-50 border-b border-gray-200">
-                          <th className="text-left py-4 px-6 text-sm font-semibold text-gray-700">Token No.</th>
-                          <th className="text-left py-4 px-6 text-sm font-semibold text-gray-700">Patient Name</th>
-                          <th className="text-left py-4 px-6 text-sm font-semibold text-gray-700">Age</th>
-                          <th className="text-left py-4 px-6 text-sm font-semibold text-gray-700">Contact</th>
-                          <th className="text-left py-4 px-6 text-sm font-semibold text-gray-700">Actions</th>
+                        <tr className={`border-b ${theme === 'dark' ? 'bg-gray-900/50 border-gray-700' : 'bg-gray-50 border-gray-200'}`}>
+                          <th className={`text-left py-4 px-6 text-sm font-semibold ${theme === 'dark' ? 'text-gray-300' : 'text-gray-700'}`}>Token No.</th>
+                          <th className={`text-left py-4 px-6 text-sm font-semibold ${theme === 'dark' ? 'text-gray-300' : 'text-gray-700'}`}>Patient Name</th>
+                          <th className={`text-left py-4 px-6 text-sm font-semibold ${theme === 'dark' ? 'text-gray-300' : 'text-gray-700'}`}>Age</th>
+                          <th className={`text-left py-4 px-6 text-sm font-semibold ${theme === 'dark' ? 'text-gray-300' : 'text-gray-700'}`}>Contact</th>
+                          <th className={`text-left py-4 px-6 text-sm font-semibold ${theme === 'dark' ? 'text-gray-300' : 'text-gray-700'}`}>Actions</th>
                         </tr>
                       </thead>
-                      <tbody className="divide-y divide-gray-200">
+                      <tbody className={`divide-y ${theme === 'dark' ? 'divide-gray-700' : 'divide-gray-200'}`}>
                         {completedList.map((visit) => (
-                          <tr key={visit._id} className="hover:bg-gray-50 transition-colors">
+                          <tr key={visit._id} className={`transition-colors ${theme === 'dark' ? 'hover:bg-gray-700/50' : 'hover:bg-gray-50'}`}>
                             <td className="py-4 px-6">
                               <div className="flex items-center">
-                                <div className="w-10 h-10 bg-blue-50 rounded-lg flex items-center justify-center mr-3">
-                                  <span className="font-bold text-blue-700">#{visit.appointmentNumber}</span>
+                                <div className={`w-10 h-10 rounded-lg flex items-center justify-center mr-3 ${
+                                  theme === 'dark' ? 'bg-blue-900/30' : 'bg-blue-50'
+                                }`}>
+                                  <span className={`font-bold ${theme === 'dark' ? 'text-blue-400' : 'text-blue-700'}`}>#{visit.appointmentNumber}</span>
                                 </div>
                               </div>
                             </td>
                             <td className="py-4 px-6">
-                              <div className="font-medium text-gray-900">{visit.patientName}</div>
+                              <div className={`font-medium ${theme === 'dark' ? 'text-white' : 'text-gray-900'}`}>{visit.patientName}</div>
                             </td>
                             <td className="py-4 px-6">
-                              <span className="text-gray-700">{visit.age} years</span>
+                              <span className={theme === 'dark' ? 'text-gray-300' : 'text-gray-700'}>{visit.age} years</span>
                             </td>
                             <td className="py-4 px-6">
-                              <div className="flex items-center text-gray-700">
-                                <Phone className="w-4 h-4 mr-2 text-gray-400" />
+                              <div className={`flex items-center ${theme === 'dark' ? 'text-gray-300' : 'text-gray-700'}`}>
+                                <Phone className={`w-4 h-4 mr-2 ${theme === 'dark' ? 'text-gray-500' : 'text-gray-400'}`} />
                                 {visit.phone}
                               </div>
                             </td>
@@ -635,8 +688,10 @@ export default function CounterDashboard() {
                 </div>
 
                 {completedList.length > 0 && (
-                  <div className="border-t border-gray-200 px-6 py-4 bg-gray-50">
-                    <div className="text-sm text-gray-600">
+                  <div className={`border-t px-6 py-4 ${
+                    theme === 'dark' ? 'border-gray-700 bg-gray-900/50' : 'border-gray-200 bg-gray-50'
+                  }`}>
+                    <div className={`text-sm ${theme === 'dark' ? 'text-gray-400' : 'text-gray-600'}`}>
                       Showing {completedList.length} completed treatments
                     </div>
                   </div>
@@ -647,7 +702,6 @@ export default function CounterDashboard() {
         </div>
       </div>
 
-      {/* ================= NEW MODAL: TODAY'S ALL PATIENTS ================= */}
       <AnimatePresence>
         {showAllPatientsModal && (
             <motion.div 
@@ -656,29 +710,39 @@ export default function CounterDashboard() {
             >
                 <motion.div 
                     initial={{ scale: 0.95, y: 20 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.95, y: 20 }}
-                    className="bg-white w-full max-w-4xl rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[85vh]"
+                    className={`w-full max-w-4xl rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[85vh] transition-colors duration-300 ${
+                      theme === 'dark' ? 'bg-gray-800' : 'bg-white'
+                    }`}
                 >
                     {/* Modal Header */}
                     <div className="bg-blue-600 text-white px-6 py-4 flex justify-between items-center">
                         <div>
                             <h2 className="text-xl font-bold">Today's Registered Patients</h2>
-                            <p className="text-black text-sm">{new Date().toLocaleDateString()}</p>
+                            <p className="text-blue-100 text-sm">{new Date().toLocaleDateString()}</p>
                         </div>
-                        <button onClick={() => setShowAllPatientsModal(false)} className=" p-2 rounded-full hover:bg-gray-700 transition">
+                        <button onClick={() => setShowAllPatientsModal(false)} className=" p-2 rounded-full hover:bg-blue-700 transition">
                             <X className="w-5 h-5" />
                         </button>
                     </div>
 
                     {/* Search Bar */}
-                    <div className="p-4 border-b border-gray-200 bg-gray-50">
+                    <div className={`p-4 border-b ${
+                      theme === 'dark' ? 'border-gray-700 bg-gray-900/50' : 'border-gray-200 bg-gray-50'
+                    }`}>
                         <div className="relative">
-                            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+                            <Search className={`absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 ${
+                              theme === 'dark' ? 'text-gray-500' : 'text-gray-400'
+                            }`} />
                             <input 
                                 type="text" 
                                 placeholder="Search by patient name or token number..." 
                                 value={searchQuery}
                                 onChange={(e) => setSearchQuery(e.target.value)}
-                                className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none shadow-sm"
+                                className={`w-full pl-10 pr-4 py-3 border rounded-xl outline-none shadow-sm transition ${
+                                  theme === 'dark' 
+                                    ? 'bg-gray-700 border-gray-600 text-white placeholder-gray-400 focus:ring-2 focus:ring-blue-500' 
+                                    : 'bg-white border-gray-300 text-gray-900 focus:ring-2 focus:ring-blue-500'
+                                }`}
                             />
                         </div>
                     </div>
@@ -686,15 +750,17 @@ export default function CounterDashboard() {
                     {/* Patient List Table */}
                     <div className="overflow-y-auto flex-1 p-4">
                         {loadingList ? (
-                            <div className="text-center py-10 text-gray-500">Loading daily records...</div>
+                            <div className={`text-center py-10 ${theme === 'dark' ? 'text-gray-400' : 'text-gray-500'}`}>Loading daily records...</div>
                         ) : filteredPatients.length === 0 ? (
-                            <div className="text-center py-10 text-gray-400 flex flex-col items-center">
+                            <div className={`text-center py-10 flex flex-col items-center ${theme === 'dark' ? 'text-gray-500' : 'text-gray-400'}`}>
                                 <Users className="w-12 h-12 mb-2 opacity-50" />
                                 <p>No patients found matching your search.</p>
                             </div>
                         ) : (
-                            <table className="w-full text-sm text-left text-gray-500">
-                                <thead className="text-xs text-gray-700 uppercase bg-gray-100 sticky top-0">
+                            <table className={`w-full text-sm text-left ${theme === 'dark' ? 'text-gray-400' : 'text-gray-500'}`}>
+                                <thead className={`text-xs uppercase sticky top-0 ${
+                                  theme === 'dark' ? 'bg-gray-700 text-gray-300' : 'bg-gray-100 text-gray-700'
+                                }`}>
                                     <tr>
                                         <th className="px-6 py-3">Token</th>
                                         <th className="px-6 py-3">Patient Name</th>
@@ -703,18 +769,22 @@ export default function CounterDashboard() {
                                         <th className="px-6 py-3 text-center">Status</th>
                                     </tr>
                                 </thead>
-                                <tbody>
+                                <tbody className={`divide-y ${theme === 'dark' ? 'divide-gray-700' : 'divide-gray-200'}`}>
                                     {filteredPatients.map((p) => (
-                                        <tr key={p._id} className="bg-white border-b hover:bg-gray-50 transition">
-                                            <td className="px-6 py-4 font-bold text-gray-900">#{p.appointmentNumber}</td>
-                                            <td className="px-6 py-4 font-medium text-gray-900">{p.patientName}</td>
+                                        <tr key={p._id} className={`border-b transition ${
+                                          theme === 'dark' ? 'bg-gray-800 border-gray-700 hover:bg-gray-700/50' : 'bg-white border-gray-200 hover:bg-gray-50'
+                                        }`}>
+                                            <td className={`px-6 py-4 font-bold ${theme === 'dark' ? 'text-white' : 'text-gray-900'}`}>#{p.appointmentNumber}</td>
+                                            <td className={`px-6 py-4 font-medium ${theme === 'dark' ? 'text-gray-200' : 'text-gray-900'}`}>{p.patientName}</td>
                                             <td className="px-6 py-4">{p.age}</td>
                                             <td className="px-6 py-4">{p.phone}</td>
                                             <td className="px-6 py-4 text-center">
                                                 <span className={`px-3 py-1 rounded-full text-xs font-semibold
-                                                    ${p.status === 'completed' ? 'bg-green-100 text-green-800' : 
-                                                      p.status === 'in_progress' ? 'bg-blue-100 text-blue-800' : 
-                                                      'bg-yellow-100 text-yellow-800'}`}>
+                                                    ${p.status === 'completed' 
+                                                      ? theme === 'dark' ? 'bg-green-900/50 text-green-300' : 'bg-green-100 text-green-800' 
+                                                      : p.status === 'in_progress' 
+                                                      ? theme === 'dark' ? 'bg-blue-900/50 text-blue-300' : 'bg-blue-100 text-blue-800'
+                                                      : theme === 'dark' ? 'bg-yellow-900/50 text-yellow-300' : 'bg-yellow-100 text-yellow-800'}`}>
                                                     {p.status === 'in_progress' ? 'With Doctor' : 
                                                      p.status === 'completed' ? 'Completed' : 'Waiting'}
                                                 </span>
@@ -726,8 +796,9 @@ export default function CounterDashboard() {
                         )}
                     </div>
 
-                    {/* Footer */}
-                    <div className="p-4 border-t border-gray-200 bg-gray-50 text-right text-sm text-gray-500">
+                    <div className={`p-4 border-t text-right text-sm ${
+                      theme === 'dark' ? 'border-gray-700 bg-gray-900/50 text-gray-400' : 'border-gray-200 bg-gray-50 text-gray-500'
+                    }`}>
                         Total Records: {filteredPatients.length}
                     </div>
                 </motion.div>
