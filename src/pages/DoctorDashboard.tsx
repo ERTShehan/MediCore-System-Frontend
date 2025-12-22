@@ -5,7 +5,7 @@ import { Toaster, toast } from "react-hot-toast";
 import { useTheme } from "../hooks/useTheme"; // Theme Hook import
 
 // Services
-import { requestNextPatient, submitTreatment, getPatientHistory, getQueueStatus } from "../services/visit";
+import { requestNextPatient, submitTreatment, getPatientHistory, getQueueStatus, getAllTodayVisits } from "../services/visit";
 import { createStaff, getMyStaff, deleteStaff, toggleStaffStatus } from "../services/staff";
 
 // Icons
@@ -15,7 +15,7 @@ import {
   Stethoscope, Pill, History,
   ChevronRight, CheckCircle, XCircle,
   AlertCircle, X, Info,
-  AlertTriangle, Check, Loader2, Play
+  AlertTriangle, Check, Loader2, Play, Search
 } from "lucide-react";
 
 // Types
@@ -32,9 +32,10 @@ interface Visit {
   age: number;
   phone: string;
   appointmentNumber: number;
+  status?: 'pending' | 'in_progress' | 'completed';
+  date?: string;
   diagnosis?: string;
   prescription?: string;
-  date?: string;
 }
 
 // --- Custom Toast Components with Dark Mode Support ---
@@ -218,6 +219,16 @@ export default function DoctorDashboard() {
 
   const [totalToday, setTotalToday] = useState<number>(0);
   const [completedList, setCompletedList] = useState<Visit[]>([]); 
+
+  const [showAllPatientsModal, setShowAllPatientsModal] = useState(false);
+  const [allPatientsList, setAllPatientsList] = useState<Visit[]>([]);
+  const [loadingList, setLoadingList] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+
+  const filteredPatients = allPatientsList.filter(p => 
+    p.patientName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    p.appointmentNumber.toString().includes(searchQuery)
+  );
 
   // Confirmation Modal States
   const [confirmationModal, setConfirmationModal] = useState<{
@@ -426,6 +437,19 @@ export default function DoctorDashboard() {
     } catch (error) {
       toast.dismiss(loadingToast);
       showToast(`Failed to ${action} staff member`, "error");
+    }
+  };
+
+  const handleViewAllPatients = async() => {
+    setShowAllPatientsModal(true);
+    setLoadingList(true);
+    try {
+      const res = await getAllTodayVisits();
+      setAllPatientsList(res.data);
+    } catch (error) {
+      showToast("Failed to load all patients", "error");
+    } finally {
+      setLoadingList(false);
     }
   };
 
@@ -806,7 +830,7 @@ export default function DoctorDashboard() {
                 </div>
                 <div className="p-6 space-y-3">
                   <button 
-                    onClick={() => showToast("Feature coming soon!", "info")}
+                    onClick={handleViewAllPatients}
                     className={`w-full flex items-center justify-between p-4 text-left rounded-xl transition-colors group ${
                       theme === 'dark' ? 'bg-blue-900/20 hover:bg-blue-900/40' : 'bg-blue-50 hover:bg-blue-100'
                     }`}
@@ -1143,6 +1167,110 @@ export default function DoctorDashboard() {
               </div>
             </div>
           </motion.div>
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {showAllPatientsModal && (
+            <motion.div 
+                initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4 backdrop-blur-sm"
+            >
+                <motion.div 
+                    initial={{ scale: 0.95, y: 20 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.95, y: 20 }}
+                    className={`w-full max-w-4xl rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[85vh] transition-colors duration-300 ${
+                      theme === 'dark' ? 'bg-gray-800' : 'bg-white'
+                    }`}
+                >
+                    {/* Modal Header */}
+                    <div className="bg-blue-600 text-white px-6 py-4 flex justify-between items-center">
+                        <div>
+                            <h2 className="text-xl font-bold">Today's Registered Patients</h2>
+                            <p className="text-blue-100 text-sm">{new Date().toLocaleDateString()}</p>
+                        </div>
+                        <button onClick={() => setShowAllPatientsModal(false)} className=" p-2 rounded-full hover:bg-blue-700 transition">
+                            <X className="w-5 h-5" />
+                        </button>
+                    </div>
+
+                    {/* Search Bar */}
+                    <div className={`p-4 border-b ${
+                      theme === 'dark' ? 'border-gray-700 bg-gray-900/50' : 'border-gray-200 bg-gray-50'
+                    }`}>
+                        <div className="relative">
+                            <Search className={`absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 ${
+                              theme === 'dark' ? 'text-gray-500' : 'text-gray-400'
+                            }`} />
+                            <input 
+                                type="text" 
+                                placeholder="Search by patient name or token number..." 
+                                value={searchQuery}
+                                onChange={(e) => setSearchQuery(e.target.value)}
+                                className={`w-full pl-10 pr-4 py-3 border rounded-xl outline-none shadow-sm transition ${
+                                  theme === 'dark' 
+                                    ? 'bg-gray-700 border-gray-600 text-white placeholder-gray-400 focus:ring-2 focus:ring-blue-500' 
+                                    : 'bg-white border-gray-300 text-gray-900 focus:ring-2 focus:ring-blue-500'
+                                }`}
+                            />
+                        </div>
+                    </div>
+
+                    {/* Patient List Table */}
+                    <div className="overflow-y-auto flex-1 p-4">
+                        {loadingList ? (
+                            <div className={`text-center py-10 ${theme === 'dark' ? 'text-gray-400' : 'text-gray-500'}`}>Loading daily records...</div>
+                        ) : filteredPatients.length === 0 ? (
+                            <div className={`text-center py-10 flex flex-col items-center ${theme === 'dark' ? 'text-gray-500' : 'text-gray-400'}`}>
+                                <Users className="w-12 h-12 mb-2 opacity-50" />
+                                <p>No patients found matching your search.</p>
+                            </div>
+                        ) : (
+                            <table className={`w-full text-sm text-left ${theme === 'dark' ? 'text-gray-400' : 'text-gray-500'}`}>
+                                <thead className={`text-xs uppercase sticky top-0 ${
+                                  theme === 'dark' ? 'bg-gray-700 text-gray-300' : 'bg-gray-100 text-gray-700'
+                                }`}>
+                                    <tr>
+                                        <th className="px-6 py-3">Token</th>
+                                        <th className="px-6 py-3">Patient Name</th>
+                                        <th className="px-6 py-3">Age</th>
+                                        <th className="px-6 py-3">Phone</th>
+                                        <th className="px-6 py-3 text-center">Status</th>
+                                    </tr>
+                                </thead>
+                                <tbody className={`divide-y ${theme === 'dark' ? 'divide-gray-700' : 'divide-gray-200'}`}>
+                                    {filteredPatients.map((p) => (
+                                        <tr key={p._id} className={`border-b transition ${
+                                          theme === 'dark' ? 'bg-gray-800 border-gray-700 hover:bg-gray-700/50' : 'bg-white border-gray-200 hover:bg-gray-50'
+                                        }`}>
+                                            <td className={`px-6 py-4 font-bold ${theme === 'dark' ? 'text-white' : 'text-gray-900'}`}>#{p.appointmentNumber}</td>
+                                            <td className={`px-6 py-4 font-medium ${theme === 'dark' ? 'text-gray-200' : 'text-gray-900'}`}>{p.patientName}</td>
+                                            <td className="px-6 py-4">{p.age}</td>
+                                            <td className="px-6 py-4">{p.phone}</td>
+                                            <td className="px-6 py-4 text-center">
+                                                <span className={`px-3 py-1 rounded-full text-xs font-semibold
+                                                    ${p.status === 'completed' 
+                                                      ? theme === 'dark' ? 'bg-green-900/50 text-green-300' : 'bg-green-100 text-green-800' 
+                                                      : p.status === 'in_progress' 
+                                                      ? theme === 'dark' ? 'bg-blue-900/50 text-blue-300' : 'bg-blue-100 text-blue-800'
+                                                      : theme === 'dark' ? 'bg-yellow-900/50 text-yellow-300' : 'bg-yellow-100 text-yellow-800'}`}>
+                                                    {p.status === 'in_progress' ? 'With Doctor' : 
+                                                     p.status === 'completed' ? 'Completed' : 'Waiting'}
+                                                </span>
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        )}
+                    </div>
+
+                    <div className={`p-4 border-t text-right text-sm ${
+                      theme === 'dark' ? 'border-gray-700 bg-gray-900/50 text-gray-400' : 'border-gray-200 bg-gray-50 text-gray-500'
+                    }`}>
+                        Total Records: {filteredPatients.length}
+                    </div>
+                </motion.div>
+            </motion.div>
         )}
       </AnimatePresence>
   </Layout>

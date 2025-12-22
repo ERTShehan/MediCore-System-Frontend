@@ -666,9 +666,9 @@ export default function Index() {
               <p>© 2025 MediCore. All rights reserved.</p>
             </div>
             <div className="flex gap-6">
-              <a href="#" className="hover:text-white transition-colors">Privacy Policy</a>
-              <a href="#" className="hover:text-white transition-colors">Terms of Service</a>
-              <a href="#" className="hover:text-white transition-colors">Support</a>
+              <a href="https://policies.google.com/privacy?hl=en-US" target="_blank" rel="noopener noreferrer" className="hover:text-white transition-colors">Privacy Policy</a>
+              <a href="https://policies.google.com/terms?hl=en-US" target="_blank" rel="noopener noreferrer" className="hover:text-white transition-colors">Terms of Service</a>
+              <a href="https://support.google.com/" target="_blank" rel="noopener noreferrer" className="hover:text-white transition-colors">Support</a>
             </div>
           </div>
         </div>
