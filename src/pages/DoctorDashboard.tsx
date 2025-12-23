@@ -1,21 +1,24 @@
 import React, { useEffect, useState } from "react";
 import Layout from "../components/Layout";
 import { motion, AnimatePresence } from "framer-motion";
-import { Toaster, toast } from "react-hot-toast";
-import { useTheme } from "../hooks/useTheme"; // Theme Hook import
+import { useTheme } from "../hooks/useTheme";
 
 // Services
 import { requestNextPatient, submitTreatment, getPatientHistory, getQueueStatus, getAllTodayVisits } from "../services/visit";
 import { createStaff, getMyStaff, deleteStaff, toggleStaffStatus } from "../services/staff";
+
+// Components
+import TodayPatientsModal from "../components/TodayPatientsModal";
+import { notify, ToastContainer } from "../components/ToastNotification"; // NEW: Import Notification System
 
 // Icons
 import { 
   Users, Activity, Calendar, Clock, 
   UserPlus, Trash2, FileText,
   Stethoscope, Pill, History,
-  ChevronRight, CheckCircle, XCircle,
+  ChevronRight, CheckCircle,
   AlertCircle, X, Info,
-  AlertTriangle, Check, Loader2, Play, Search
+  AlertTriangle, Loader2, Play
 } from "lucide-react";
 
 // Types
@@ -37,84 +40,6 @@ interface Visit {
   diagnosis?: string;
   prescription?: string;
 }
-
-// --- Custom Toast Components with Dark Mode Support ---
-const SuccessToast = ({ message }: { message: string }) => (
-  <div className="flex items-center space-x-3 bg-white dark:bg-gray-800 border border-emerald-200 dark:border-emerald-900/50 rounded-xl shadow-lg p-4 max-w-md">
-    <div className="shrink-0">
-      <div className="w-8 h-8 bg-emerald-100 dark:bg-emerald-900/30 rounded-full flex items-center justify-center">
-        <Check className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
-      </div>
-    </div>
-    <div className="flex-1">
-      <p className="text-sm font-medium text-gray-900 dark:text-gray-100">{message}</p>
-    </div>
-    <button onClick={() => toast.dismiss()} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
-      <X className="w-4 h-4" />
-    </button>
-  </div>
-);
-
-const ErrorToast = ({ message }: { message: string }) => (
-  <div className="flex items-center space-x-3 bg-white dark:bg-gray-800 border border-red-200 dark:border-red-900/50 rounded-xl shadow-lg p-4 max-w-md">
-    <div className="shrink-0">
-      <div className="w-8 h-8 bg-red-100 dark:bg-red-900/30 rounded-full flex items-center justify-center">
-        <AlertCircle className="w-5 h-5 text-red-600 dark:text-red-400" />
-      </div>
-    </div>
-    <div className="flex-1">
-      <p className="text-sm font-medium text-gray-900 dark:text-gray-100">{message}</p>
-    </div>
-    <button onClick={() => toast.dismiss()} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
-      <X className="w-4 h-4" />
-    </button>
-  </div>
-);
-
-const WarningToast = ({ message }: { message: string }) => (
-  <div className="flex items-center space-x-3 bg-white dark:bg-gray-800 border border-amber-200 dark:border-amber-900/50 rounded-xl shadow-lg p-4 max-w-md">
-    <div className="shrink-0">
-      <div className="w-8 h-8 bg-amber-100 dark:bg-amber-900/30 rounded-full flex items-center justify-center">
-        <AlertTriangle className="w-5 h-5 text-amber-600 dark:text-amber-400" />
-      </div>
-    </div>
-    <div className="flex-1">
-      <p className="text-sm font-medium text-gray-900 dark:text-gray-100">{message}</p>
-    </div>
-    <button onClick={() => toast.dismiss()} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
-      <X className="w-4 h-4" />
-    </button>
-  </div>
-);
-
-const InfoToast = ({ message }: { message: string }) => (
-  <div className="flex items-center space-x-3 bg-white dark:bg-gray-800 border border-blue-200 dark:border-blue-900/50 rounded-xl shadow-lg p-4 max-w-md">
-    <div className="shrink-0">
-      <div className="w-8 h-8 bg-blue-100 dark:bg-blue-900/30 rounded-full flex items-center justify-center">
-        <Info className="w-5 h-5 text-blue-600 dark:text-blue-400" />
-      </div>
-    </div>
-    <div className="flex-1">
-      <p className="text-sm font-medium text-gray-900 dark:text-gray-100">{message}</p>
-    </div>
-    <button onClick={() => toast.dismiss()} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
-      <X className="w-4 h-4" />
-    </button>
-  </div>
-);
-
-const LoadingToast = ({ message }: { message: string }) => (
-  <div className="flex items-center space-x-3 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-lg p-4 max-w-md">
-    <div className="shrink-0">
-      <div className="w-8 h-8 bg-blue-100 dark:bg-blue-900/30 rounded-full flex items-center justify-center">
-        <Loader2 className="w-5 h-5 text-blue-600 dark:text-blue-400 animate-spin" />
-      </div>
-    </div>
-    <div className="flex-1">
-      <p className="text-sm font-medium text-gray-900 dark:text-gray-100">{message}</p>
-    </div>
-  </div>
-);
 
 // --- Confirmation Modal with Dark Mode ---
 const ConfirmationModal = ({
@@ -223,14 +148,7 @@ export default function DoctorDashboard() {
   const [showAllPatientsModal, setShowAllPatientsModal] = useState(false);
   const [allPatientsList, setAllPatientsList] = useState<Visit[]>([]);
   const [loadingList, setLoadingList] = useState(false);
-  const [searchQuery, setSearchQuery] = useState("");
-
-  const filteredPatients = allPatientsList.filter(p => 
-    p.patientName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    p.appointmentNumber.toString().includes(searchQuery)
-  );
-
-  // Confirmation Modal States
+  
   const [confirmationModal, setConfirmationModal] = useState<{
     isOpen: boolean;
     title: string;
@@ -292,30 +210,10 @@ export default function DoctorDashboard() {
       const res = await getMyStaff();
       setStaffList(res.data);
     } catch (error) {
-      toast.custom(() => <ErrorToast message="Failed to load staff list" />);
+      notify.error("Failed to load staff list");
       console.error("Failed to fetch staff", error);
     } finally {
       setStaffLoading(false);
-    }
-  };
-
-  const showToast = (message: string, type: 'success' | 'error' | 'warning' | 'info' | 'loading') => {
-    const toastConfig = {
-      duration: type === 'loading' ? Infinity : 4000,
-      position: 'top-right' as const,
-    };
-
-    switch (type) {
-      case 'success':
-        return toast.custom(() => <SuccessToast message={message} />, toastConfig);
-      case 'error':
-        return toast.custom(() => <ErrorToast message={message} />, toastConfig);
-      case 'warning':
-        return toast.custom(() => <WarningToast message={message} />, toastConfig);
-      case 'info':
-        return toast.custom(() => <InfoToast message={message} />, toastConfig);
-      case 'loading':
-        return toast.custom(() => <LoadingToast message={message} />, toastConfig);
     }
   };
 
@@ -327,7 +225,7 @@ export default function DoctorDashboard() {
     }
 
     setPatientLoading(true);
-    const loadingToast = showToast("Checking patient queue...", "loading");
+    const loadingId = notify.loading("Checking patient queue...");
     
     try {
       const patient = await requestNextPatient();
@@ -336,12 +234,12 @@ export default function DoctorDashboard() {
       setPrescription("");
       setHistoryList([]);
       setIsModalOpen(true);
-      toast.dismiss(loadingToast);
-      showToast(`Patient ${patient.patientName} loaded successfully`, "success");
+      notify.dismiss(loadingId);
+      notify.success(`Patient ${patient.patientName} loaded successfully`);
     } catch (error: any) {
-      toast.dismiss(loadingToast);
+      notify.dismiss(loadingId);
       const errorMessage = error.response?.data?.message || "No patients in queue";
-      showToast(errorMessage, "warning");
+      notify.warning(errorMessage);
     } finally {
       setPatientLoading(false);
     }
@@ -351,53 +249,53 @@ export default function DoctorDashboard() {
     e.preventDefault();
     if (!currentPatient) return;
     
-    const loadingToast = showToast("Submitting treatment...", "loading");
+    const loadingId = notify.loading("Submitting treatment...");
     
     try {
       await submitTreatment(currentPatient._id, { diagnosis, prescription });
-      toast.dismiss(loadingToast);
-      showToast("Treatment submitted successfully!", "success");
+      notify.dismiss(loadingId);
+      notify.success("Treatment submitted successfully!");
       setCurrentPatient(null);
       setIsModalOpen(false);
       fetchStatus();
     } catch (error) {
-      toast.dismiss(loadingToast);
-      showToast("Failed to save treatment. Please try again.", "error");
+      notify.dismiss(loadingId);
+      notify.error("Failed to save treatment. Please try again.");
     }
   };
 
   const handleViewHistory = async () => {
     if (!currentPatient) return;
     
-    const loadingToast = showToast("Loading patient history...", "loading");
+    const loadingId = notify.loading("Loading patient history...");
     
     try {
       const res = await getPatientHistory(currentPatient.phone);
       setHistoryList(res.data);
       setShowHistoryModal(true);
-      toast.dismiss(loadingToast);
-      showToast("Patient history loaded", "success");
+      notify.dismiss(loadingId);
+      notify.success("Patient history loaded");
     } catch (error) {
-      toast.dismiss(loadingToast);
-      showToast("Failed to load patient history", "error");
+      notify.dismiss(loadingId);
+      notify.error("Failed to load patient history");
     }
   };
 
   // --- STAFF HANDLERS ---
   const handleCreateStaff = async (e: React.FormEvent) => {
     e.preventDefault();
-    const loadingToast = showToast("Creating staff member...", "loading");
+    const loadingId = notify.loading("Creating staff member...");
     
     try {
       await createStaff(staffFormData);
-      toast.dismiss(loadingToast);
-      showToast("Staff member created successfully", "success");
+      notify.dismiss(loadingId);
+      notify.success("Staff member created successfully");
       setStaffFormData({ name: "", email: "", password: "" });
       setShowAddStaffForm(false);
       fetchStaff();
     } catch (error: any) {
-      toast.dismiss(loadingToast);
-      showToast(error.response?.data?.message || "Failed to create staff member", "error");
+      notify.dismiss(loadingId);
+      notify.error(error.response?.data?.message || "Failed to create staff member");
     }
   };
 
@@ -412,31 +310,31 @@ export default function DoctorDashboard() {
   };
 
   const performDeleteStaff = async (id: string, name: string) => {
-    const loadingToast = showToast(`Removing ${name}...`, "loading");
+    const loadingId = notify.loading(`Removing ${name}...`);
     
     try {
       await deleteStaff(id);
       setStaffList(staffList.filter(s => s._id !== id));
-      toast.dismiss(loadingToast);
-      showToast(`${name} has been removed successfully`, "success");
+      notify.dismiss(loadingId);
+      notify.success(`${name} has been removed successfully`);
     } catch (error) {
-      toast.dismiss(loadingToast);
-      showToast("Failed to delete staff member", "error");
+      notify.dismiss(loadingId);
+      notify.error("Failed to delete staff member");
     }
   };
 
   const handleToggleStatus = async (id: string, name: string, currentStatus: boolean) => {
     const action = currentStatus ? "deactivate" : "activate";
-    const loadingToast = showToast(`${action === "activate" ? "Activating" : "Deactivating"} ${name}...`, "loading");
+    const loadingId = notify.loading(`${action === "activate" ? "Activating" : "Deactivating"} ${name}...`);
     
     try {
       await toggleStaffStatus(id);
       setStaffList(staffList.map(s => s._id === id ? { ...s, isActive: !s.isActive } : s));
-      toast.dismiss(loadingToast);
-      showToast(`${name} ${action}d successfully`, "success");
+      notify.dismiss(loadingId);
+      notify.success(`${name} ${action}d successfully`);
     } catch (error) {
-      toast.dismiss(loadingToast);
-      showToast(`Failed to ${action} staff member`, "error");
+      notify.dismiss(loadingId);
+      notify.error(`Failed to ${action} staff member`);
     }
   };
 
@@ -447,7 +345,7 @@ export default function DoctorDashboard() {
       const res = await getAllTodayVisits();
       setAllPatientsList(res.data);
     } catch (error) {
-      showToast("Failed to load all patients", "error");
+      notify.error("Failed to load all patients");
     } finally {
       setLoadingList(false);
     }
@@ -455,21 +353,21 @@ export default function DoctorDashboard() {
 
   return (
     <Layout>
+      <ToastContainer />
+
+      <ConfirmationModal
+        isOpen={confirmationModal.isOpen}
+        onClose={() => setConfirmationModal({ ...confirmationModal, isOpen: false })}
+        onConfirm={confirmationModal.onConfirm}
+        title={confirmationModal.title}
+        message={confirmationModal.message}
+        type={confirmationModal.type}
+        confirmText={confirmationModal.type === "danger" ? "Remove" : "Confirm"}
+      />
+
       <div className={`min-h-screen transition-colors duration-300 ${
         theme === 'dark' ? 'bg-gray-900' : 'bg-gray-50'
       }`}>
-        <Toaster position="top-right" reverseOrder={false} gutter={8} containerClassName="!z-[1000]" toastOptions={{ duration: 4000 }} />
-
-        <ConfirmationModal
-          isOpen={confirmationModal.isOpen}
-          onClose={() => setConfirmationModal({ ...confirmationModal, isOpen: false })}
-          onConfirm={confirmationModal.onConfirm}
-          title={confirmationModal.title}
-          message={confirmationModal.message}
-          type={confirmationModal.type}
-          confirmText={confirmationModal.type === "danger" ? "Remove" : "Confirm"}
-        />
-
         <div className={`border-b px-8 py-6 transition-colors duration-300 ${
           theme === 'dark' ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'
         }`}>
@@ -777,7 +675,6 @@ export default function DoctorDashboard() {
                                   <p className={`text-sm ${theme === 'dark' ? 'text-gray-400' : 'text-gray-500'}`}>{staff.email}</p>
                                 </div>
                               </div>
-                              
                               <div className="flex items-center space-x-4">
                                 <div className="flex items-center">
                                   <div className={`w-2 h-2 rounded-full mr-2 ${staff.isActive ? 'bg-green-500' : 'bg-gray-300'}`}></div>
@@ -850,7 +747,7 @@ export default function DoctorDashboard() {
                   </button>
                   
                   <button 
-                    onClick={() => showToast("Feature coming soon!", "info")}
+                    onClick={() => notify.info("Feature coming soon!")}
                     className={`w-full flex items-center justify-between p-4 text-left rounded-xl transition-colors group ${
                       theme === 'dark' ? 'bg-emerald-900/20 hover:bg-emerald-900/40' : 'bg-emerald-50 hover:bg-emerald-100'
                     }`}
@@ -870,7 +767,7 @@ export default function DoctorDashboard() {
                   </button>
                   
                   <button 
-                    onClick={() => showToast("Feature coming soon!", "info")}
+                    onClick={() => notify.info("Feature coming soon!")}
                     className={`w-full flex items-center justify-between p-4 text-left rounded-xl transition-colors group ${
                       theme === 'dark' ? 'bg-purple-900/20 hover:bg-purple-900/40' : 'bg-purple-50 hover:bg-purple-100'
                     }`}
@@ -890,7 +787,7 @@ export default function DoctorDashboard() {
                   </button>
                 </div>
               </div>
-
+              
               <div className={`rounded-xl border shadow-sm transition-colors ${
                 theme === 'dark' ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'
               }`}>
@@ -931,7 +828,7 @@ export default function DoctorDashboard() {
         </div>
       </div>
 
-      {/* ================= MODALS ================= */}
+      {/* MODALS*/}
       
       <AnimatePresence>
         {isModalOpen && currentPatient && (
@@ -1170,109 +1067,12 @@ export default function DoctorDashboard() {
         )}
       </AnimatePresence>
 
-      <AnimatePresence>
-        {showAllPatientsModal && (
-            <motion.div 
-                initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-                className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4 backdrop-blur-sm"
-            >
-                <motion.div 
-                    initial={{ scale: 0.95, y: 20 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.95, y: 20 }}
-                    className={`w-full max-w-4xl rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[85vh] transition-colors duration-300 ${
-                      theme === 'dark' ? 'bg-gray-800' : 'bg-white'
-                    }`}
-                >
-                    {/* Modal Header */}
-                    <div className="bg-blue-600 text-white px-6 py-4 flex justify-between items-center">
-                        <div>
-                            <h2 className="text-xl font-bold">Today's Registered Patients</h2>
-                            <p className="text-blue-100 text-sm">{new Date().toLocaleDateString()}</p>
-                        </div>
-                        <button onClick={() => setShowAllPatientsModal(false)} className=" p-2 rounded-full hover:bg-blue-700 transition">
-                            <X className="w-5 h-5" />
-                        </button>
-                    </div>
-
-                    {/* Search Bar */}
-                    <div className={`p-4 border-b ${
-                      theme === 'dark' ? 'border-gray-700 bg-gray-900/50' : 'border-gray-200 bg-gray-50'
-                    }`}>
-                        <div className="relative">
-                            <Search className={`absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 ${
-                              theme === 'dark' ? 'text-gray-500' : 'text-gray-400'
-                            }`} />
-                            <input 
-                                type="text" 
-                                placeholder="Search by patient name or token number..." 
-                                value={searchQuery}
-                                onChange={(e) => setSearchQuery(e.target.value)}
-                                className={`w-full pl-10 pr-4 py-3 border rounded-xl outline-none shadow-sm transition ${
-                                  theme === 'dark' 
-                                    ? 'bg-gray-700 border-gray-600 text-white placeholder-gray-400 focus:ring-2 focus:ring-blue-500' 
-                                    : 'bg-white border-gray-300 text-gray-900 focus:ring-2 focus:ring-blue-500'
-                                }`}
-                            />
-                        </div>
-                    </div>
-
-                    {/* Patient List Table */}
-                    <div className="overflow-y-auto flex-1 p-4">
-                        {loadingList ? (
-                            <div className={`text-center py-10 ${theme === 'dark' ? 'text-gray-400' : 'text-gray-500'}`}>Loading daily records...</div>
-                        ) : filteredPatients.length === 0 ? (
-                            <div className={`text-center py-10 flex flex-col items-center ${theme === 'dark' ? 'text-gray-500' : 'text-gray-400'}`}>
-                                <Users className="w-12 h-12 mb-2 opacity-50" />
-                                <p>No patients found matching your search.</p>
-                            </div>
-                        ) : (
-                            <table className={`w-full text-sm text-left ${theme === 'dark' ? 'text-gray-400' : 'text-gray-500'}`}>
-                                <thead className={`text-xs uppercase sticky top-0 ${
-                                  theme === 'dark' ? 'bg-gray-700 text-gray-300' : 'bg-gray-100 text-gray-700'
-                                }`}>
-                                    <tr>
-                                        <th className="px-6 py-3">Token</th>
-                                        <th className="px-6 py-3">Patient Name</th>
-                                        <th className="px-6 py-3">Age</th>
-                                        <th className="px-6 py-3">Phone</th>
-                                        <th className="px-6 py-3 text-center">Status</th>
-                                    </tr>
-                                </thead>
-                                <tbody className={`divide-y ${theme === 'dark' ? 'divide-gray-700' : 'divide-gray-200'}`}>
-                                    {filteredPatients.map((p) => (
-                                        <tr key={p._id} className={`border-b transition ${
-                                          theme === 'dark' ? 'bg-gray-800 border-gray-700 hover:bg-gray-700/50' : 'bg-white border-gray-200 hover:bg-gray-50'
-                                        }`}>
-                                            <td className={`px-6 py-4 font-bold ${theme === 'dark' ? 'text-white' : 'text-gray-900'}`}>#{p.appointmentNumber}</td>
-                                            <td className={`px-6 py-4 font-medium ${theme === 'dark' ? 'text-gray-200' : 'text-gray-900'}`}>{p.patientName}</td>
-                                            <td className="px-6 py-4">{p.age}</td>
-                                            <td className="px-6 py-4">{p.phone}</td>
-                                            <td className="px-6 py-4 text-center">
-                                                <span className={`px-3 py-1 rounded-full text-xs font-semibold
-                                                    ${p.status === 'completed' 
-                                                      ? theme === 'dark' ? 'bg-green-900/50 text-green-300' : 'bg-green-100 text-green-800' 
-                                                      : p.status === 'in_progress' 
-                                                      ? theme === 'dark' ? 'bg-blue-900/50 text-blue-300' : 'bg-blue-100 text-blue-800'
-                                                      : theme === 'dark' ? 'bg-yellow-900/50 text-yellow-300' : 'bg-yellow-100 text-yellow-800'}`}>
-                                                    {p.status === 'in_progress' ? 'With Doctor' : 
-                                                     p.status === 'completed' ? 'Completed' : 'Waiting'}
-                                                </span>
-                                            </td>
-                                        </tr>
-                                    ))}
-                                </tbody>
-                            </table>
-                        )}
-                    </div>
-
-                    <div className={`p-4 border-t text-right text-sm ${
-                      theme === 'dark' ? 'border-gray-700 bg-gray-900/50 text-gray-400' : 'border-gray-200 bg-gray-50 text-gray-500'
-                    }`}>
-                        Total Records: {filteredPatients.length}
-                    </div>
-                </motion.div>
-            </motion.div>
-        )}
-      </AnimatePresence>
+      <TodayPatientsModal 
+        isOpen={showAllPatientsModal}
+        onClose={() => setShowAllPatientsModal(false)}
+        patients={allPatientsList}
+        isLoading={loadingList}
+      />
   </Layout>
   );
 }

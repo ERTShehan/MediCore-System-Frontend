@@ -1,23 +1,15 @@
 import React, { useState, useEffect, useRef } from "react";
 import Layout from "../components/Layout";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion } from "framer-motion";
 import { createVisit, getQueueStatus, getVisitDetails, getAllTodayVisits } from "../services/visit";
 import { useTheme } from "../hooks/useTheme";
+import TodayPatientsModal from "../components/TodayPatientsModal";
+import { notify, ToastContainer } from "../components/ToastNotification";
 
 // Icons
 import {
-  Users,
-  Clock,
-  Printer,
-  UserPlus,
-  CheckCircle,
-  AlertCircle,
-  Phone,
-  RefreshCw,
-  UserCheck,
-  FileText,
-  Search,
-  X
+  Users, Clock, Printer, UserPlus, CheckCircle,
+  Phone, RefreshCw, UserCheck, FileText
 } from "lucide-react";
 
 // Interfaces
@@ -40,23 +32,20 @@ export default function CounterDashboard() {
   const [formData, setFormData] = useState({ patientName: "", age: "", phone: "" });
   const [registerLoading, setRegisterLoading] = useState(false);
   const [registeredToken, setRegisteredToken] = useState<number | null>(null);
-  const [notification, setNotification] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
-
+  
   // Status & Queue
   const [currentPatient, setCurrentPatient] = useState<VisitData | null>(null);
   const [completedList, setCompletedList] = useState<VisitData[]>([]);
   const [totalToday, setTotalToday] = useState<number>(0);
 
-  //NEW STATES FOR MODAL
+  // Modal States
   const [showAllPatientsModal, setShowAllPatientsModal] = useState(false);
   const [allPatientsList, setAllPatientsList] = useState<VisitData[]>([]);
-  const [searchQuery, setSearchQuery] = useState("");
   const [loadingList, setLoadingList] = useState(false);
 
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isPrinting, setIsPrinting] = useState(false);
 
-  // Refs
   const printFrameRef = useRef<HTMLIFrameElement>(null);
   const isPrintingRef = useRef(false);
 
@@ -69,19 +58,12 @@ export default function CounterDashboard() {
     };
   }, []);
 
-  // Show notification
-  const showNotification = (message: string, type: 'success' | 'error') => {
-    setNotification({ message, type });
-    setTimeout(() => setNotification(null), 3000);
-  };
-
-  // Polling for Status Updates (Every 3 seconds) ---
+  // Polling for Status Updates
   useEffect(() => {
     const interval = setInterval(() => {
       fetchStatus();
     }, 3000);
-    
-    fetchStatus(); // Initial call
+    fetchStatus();
     return () => clearInterval(interval);
   }, []);
 
@@ -96,14 +78,13 @@ export default function CounterDashboard() {
     }
   };
 
-  // Manual refresh
   const handleManualRefresh = async () => {
     setIsRefreshing(true);
     await fetchStatus();
     setTimeout(() => setIsRefreshing(false), 500);
   };
 
-  //Registration Handler ---
+  // Registration Handler
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
     setRegisterLoading(true);
@@ -111,10 +92,10 @@ export default function CounterDashboard() {
       const res = await createVisit(formData);
       setRegisteredToken(res.appointmentNumber);
       setFormData({ patientName: "", age: "", phone: "" });
-      showNotification(`Patient registered successfully! Token: ${res.appointmentNumber}`, 'success');
+      notify.success(`Patient registered successfully! Token: ${res.appointmentNumber}`); // NEW USAGE
       fetchStatus();
     } catch (err: any) {
-      showNotification(err.response?.data?.message || "Registration failed", 'error');
+      notify.error(err.response?.data?.message || "Registration failed"); // NEW USAGE
     } finally {
       setRegisterLoading(false);
     }
@@ -127,22 +108,16 @@ export default function CounterDashboard() {
         const res = await getAllTodayVisits();
         setAllPatientsList(res.data);
     } catch (error) {
-        showNotification("Failed to fetch daily list", 'error');
+        notify.error("Failed to fetch daily list"); // NEW USAGE
     } finally {
         setLoadingList(false);
     }
   };
 
-  // Filter Logic
-  const filteredPatients = allPatientsList.filter(p => 
-    p.patientName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    p.appointmentNumber.toString().includes(searchQuery)
-  );
-
-  // Print Handler ---
+  // Print Handler
   const handlePrint = async (id: string) => {
     if (isPrintingRef.current) {
-      showNotification("Already printing, please wait...", 'error');
+      notify.error("Already printing, please wait..."); // NEW USAGE
       return;
     }
 
@@ -257,7 +232,7 @@ export default function CounterDashboard() {
             document.body.removeChild(printFrame);
             setIsPrinting(false);
             isPrintingRef.current = false;
-            showNotification("Bill printed successfully!", 'success');
+            notify.success("Bill printed successfully!"); // NEW USAGE
           }, 100);
         }, 100);
       };
@@ -265,32 +240,13 @@ export default function CounterDashboard() {
     } catch (error) {
       setIsPrinting(false);
       isPrintingRef.current = false;
-      showNotification("Failed to load bill details", 'error');
+      notify.error("Failed to load bill details"); // NEW USAGE
     }
   };
 
   return (
     <Layout>
-      {/* Notification Toast */}
-      {notification && (
-        <motion.div
-          initial={{ y: -50, opacity: 0 }}
-          animate={{ y: 0, opacity: 1 }}
-          exit={{ y: -50, opacity: 0 }}
-          className={`fixed top-4 right-4 z-50 px-6 py-3 rounded-lg shadow-lg flex items-center space-x-3 ${
-            notification.type === 'success'
-              ? theme === 'dark' ? 'bg-emerald-900/50 border border-emerald-800 text-emerald-200' : 'bg-emerald-50 border border-emerald-200 text-emerald-800'
-              : theme === 'dark' ? 'bg-red-900/50 border border-red-800 text-red-200' : 'bg-red-50 border border-red-200 text-red-800'
-          }`}
-        >
-          {notification.type === 'success' ? (
-            <CheckCircle className="w-5 h-5" />
-          ) : (
-            <AlertCircle className="w-5 h-5" />
-          )}
-          <span className="font-medium">{notification.message}</span>
-        </motion.div>
-      )}
+      <ToastContainer />
 
       <div className={`min-h-screen transition-colors duration-300 ${
         theme === 'dark' ? 'bg-gray-900' : 'bg-gray-50'
@@ -333,7 +289,6 @@ export default function CounterDashboard() {
 
         <div className="p-8 space-y-8">
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            {/* Current Patient Card */}
             <div className={`lg:col-span-2 rounded-xl border shadow-sm p-6 transition-colors duration-300 ${
               theme === 'dark' ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'
             }`}>
@@ -702,109 +657,12 @@ export default function CounterDashboard() {
         </div>
       </div>
 
-      <AnimatePresence>
-        {showAllPatientsModal && (
-            <motion.div 
-                initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-                className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4 backdrop-blur-sm"
-            >
-                <motion.div 
-                    initial={{ scale: 0.95, y: 20 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.95, y: 20 }}
-                    className={`w-full max-w-4xl rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[85vh] transition-colors duration-300 ${
-                      theme === 'dark' ? 'bg-gray-800' : 'bg-white'
-                    }`}
-                >
-                    {/* Modal Header */}
-                    <div className="bg-blue-600 text-white px-6 py-4 flex justify-between items-center">
-                        <div>
-                            <h2 className="text-xl font-bold">Today's Registered Patients</h2>
-                            <p className="text-blue-100 text-sm">{new Date().toLocaleDateString()}</p>
-                        </div>
-                        <button onClick={() => setShowAllPatientsModal(false)} className=" p-2 rounded-full hover:bg-blue-700 transition">
-                            <X className="w-5 h-5" />
-                        </button>
-                    </div>
-
-                    {/* Search Bar */}
-                    <div className={`p-4 border-b ${
-                      theme === 'dark' ? 'border-gray-700 bg-gray-900/50' : 'border-gray-200 bg-gray-50'
-                    }`}>
-                        <div className="relative">
-                            <Search className={`absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 ${
-                              theme === 'dark' ? 'text-gray-500' : 'text-gray-400'
-                            }`} />
-                            <input 
-                                type="text" 
-                                placeholder="Search by patient name or token number..." 
-                                value={searchQuery}
-                                onChange={(e) => setSearchQuery(e.target.value)}
-                                className={`w-full pl-10 pr-4 py-3 border rounded-xl outline-none shadow-sm transition ${
-                                  theme === 'dark' 
-                                    ? 'bg-gray-700 border-gray-600 text-white placeholder-gray-400 focus:ring-2 focus:ring-blue-500' 
-                                    : 'bg-white border-gray-300 text-gray-900 focus:ring-2 focus:ring-blue-500'
-                                }`}
-                            />
-                        </div>
-                    </div>
-
-                    {/* Patient List Table */}
-                    <div className="overflow-y-auto flex-1 p-4">
-                        {loadingList ? (
-                            <div className={`text-center py-10 ${theme === 'dark' ? 'text-gray-400' : 'text-gray-500'}`}>Loading daily records...</div>
-                        ) : filteredPatients.length === 0 ? (
-                            <div className={`text-center py-10 flex flex-col items-center ${theme === 'dark' ? 'text-gray-500' : 'text-gray-400'}`}>
-                                <Users className="w-12 h-12 mb-2 opacity-50" />
-                                <p>No patients found matching your search.</p>
-                            </div>
-                        ) : (
-                            <table className={`w-full text-sm text-left ${theme === 'dark' ? 'text-gray-400' : 'text-gray-500'}`}>
-                                <thead className={`text-xs uppercase sticky top-0 ${
-                                  theme === 'dark' ? 'bg-gray-700 text-gray-300' : 'bg-gray-100 text-gray-700'
-                                }`}>
-                                    <tr>
-                                        <th className="px-6 py-3">Token</th>
-                                        <th className="px-6 py-3">Patient Name</th>
-                                        <th className="px-6 py-3">Age</th>
-                                        <th className="px-6 py-3">Phone</th>
-                                        <th className="px-6 py-3 text-center">Status</th>
-                                    </tr>
-                                </thead>
-                                <tbody className={`divide-y ${theme === 'dark' ? 'divide-gray-700' : 'divide-gray-200'}`}>
-                                    {filteredPatients.map((p) => (
-                                        <tr key={p._id} className={`border-b transition ${
-                                          theme === 'dark' ? 'bg-gray-800 border-gray-700 hover:bg-gray-700/50' : 'bg-white border-gray-200 hover:bg-gray-50'
-                                        }`}>
-                                            <td className={`px-6 py-4 font-bold ${theme === 'dark' ? 'text-white' : 'text-gray-900'}`}>#{p.appointmentNumber}</td>
-                                            <td className={`px-6 py-4 font-medium ${theme === 'dark' ? 'text-gray-200' : 'text-gray-900'}`}>{p.patientName}</td>
-                                            <td className="px-6 py-4">{p.age}</td>
-                                            <td className="px-6 py-4">{p.phone}</td>
-                                            <td className="px-6 py-4 text-center">
-                                                <span className={`px-3 py-1 rounded-full text-xs font-semibold
-                                                    ${p.status === 'completed' 
-                                                      ? theme === 'dark' ? 'bg-green-900/50 text-green-300' : 'bg-green-100 text-green-800' 
-                                                      : p.status === 'in_progress' 
-                                                      ? theme === 'dark' ? 'bg-blue-900/50 text-blue-300' : 'bg-blue-100 text-blue-800'
-                                                      : theme === 'dark' ? 'bg-yellow-900/50 text-yellow-300' : 'bg-yellow-100 text-yellow-800'}`}>
-                                                    {p.status === 'in_progress' ? 'With Doctor' : 
-                                                     p.status === 'completed' ? 'Completed' : 'Waiting'}
-                                                </span>
-                                            </td>
-                                        </tr>
-                                    ))}
-                                </tbody>
-                            </table>
-                        )}
-                    </div>
-
-                    <div className={`p-4 border-t text-right text-sm ${
-                      theme === 'dark' ? 'border-gray-700 bg-gray-900/50 text-gray-400' : 'border-gray-200 bg-gray-50 text-gray-500'
-                    }`}>
-                        Total Records: {filteredPatients.length}
-                    </div>
-                </motion.div>
-            </motion.div>
-        )}
-      </AnimatePresence>
+      <TodayPatientsModal 
+        isOpen={showAllPatientsModal}
+        onClose={() => setShowAllPatientsModal(false)}
+        patients={allPatientsList}
+        isLoading={loadingList}
+      />
 
     </Layout>
   );
