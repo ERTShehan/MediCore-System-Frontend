@@ -108,7 +108,7 @@ const Login: React.FC = () => {
 
   // System features for the left panel
   const systemFeatures = [
-    { title: "HIPAA Compliant Security", icon: "🔒" },
+    { title: "PHI Compliant Security", icon: "🔒" },
     { title: "Real-time Analytics", icon: "📊" },
     { title: "24/7 Support Access", icon: "🛟" },
     { title: "Smart Scheduling", icon: "📅" },

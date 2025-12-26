@@ -1,24 +1,36 @@
 import api from "./api";
 
-//Counter: Create Visit
+// Counter: Create Visit
 export const createVisit = async (data: { patientName: string; age: string; phone: string }) => {
   const res = await api.post("/visits/create", data);
   return res.data;
 };
 
-//Doctor: Call Next Patient
+//Doctor Creates Emergency Visit
+export const createEmergencyVisit = async (data: { 
+    patientName: string; 
+    age: string; 
+    phone: string;
+    diagnosis: string;
+    prescription: string;
+}) => {
+    const res = await api.post("/visits/emergency", data);
+    return res.data;
+};
+
+// Doctor: Call Next Patient
 export const requestNextPatient = async () => {
   const res = await api.post("/visits/next", {});
   return res.data;
 };
 
-//Doctor: Submit Treatment
+// Doctor: Submit Treatment
 export const submitTreatment = async (id: string, data: { diagnosis: string; prescription: string }) => {
   const res = await api.put(`/visits/complete/${id}`, data);
   return res.data;
 };
 
-//Doctor: Get Patient History
+// Doctor: Get Patient History
 export const getPatientHistory = async (phone: string) => {
   const res = await api.get(`/visits/history/${phone}`);
   return res.data;

@@ -4,12 +4,19 @@ import { motion, AnimatePresence } from "framer-motion";
 import { useTheme } from "../hooks/useTheme";
 
 // Services
-import { requestNextPatient, submitTreatment, getPatientHistory, getQueueStatus, getAllTodayVisits } from "../services/visit";
+import { 
+    requestNextPatient, 
+    submitTreatment, 
+    getPatientHistory, 
+    getQueueStatus, 
+    getAllTodayVisits,
+    createEmergencyVisit
+} from "../services/visit";
 import { createStaff, getMyStaff, deleteStaff, toggleStaffStatus } from "../services/staff";
 
 // Components
 import TodayPatientsModal from "../components/TodayPatientsModal";
-import { notify, ToastContainer } from "../components/ToastNotification"; // NEW: Import Notification System
+import { notify, ToastContainer } from "../components/ToastNotification";
 
 // Icons
 import { 
@@ -18,7 +25,8 @@ import {
   Stethoscope, Pill, History,
   ChevronRight, CheckCircle,
   AlertCircle, X, Info,
-  AlertTriangle, Loader2, Play
+  AlertTriangle, Loader2, Play,
+  Zap, Save
 } from "lucide-react";
 
 // Types
@@ -36,6 +44,7 @@ interface Visit {
   phone: string;
   appointmentNumber: number;
   status?: 'pending' | 'in_progress' | 'completed';
+  visitType?: 'regular' | 'emergency';
   date?: string;
   diagnosis?: string;
   prescription?: string;
@@ -135,6 +144,13 @@ export default function DoctorDashboard() {
   const [patientLoading, setPatientLoading] = useState(false);
   const [diagnosis, setDiagnosis] = useState("");
   const [prescription, setPrescription] = useState("");
+
+  // Emergency Patient States
+  const [showEmergencyModal, setShowEmergencyModal] = useState(false);
+  const [emergencyLoading, setEmergencyLoading] = useState(false);
+  const [emergencyForm, setEmergencyForm] = useState({
+      patientName: "", age: "", phone: "", diagnosis: "", prescription: ""
+  });
 
   // Staff States
   const [staffList, setStaffList] = useState<StaffMember[]>([]);
@@ -279,6 +295,28 @@ export default function DoctorDashboard() {
       notify.dismiss(loadingId);
       notify.error("Failed to load patient history");
     }
+  };
+
+  // --- ADDED: EMERGENCY PATIENT HANDLER ---
+  const handleEmergencySubmit = async (e: React.FormEvent) => {
+      e.preventDefault();
+      setEmergencyLoading(true);
+      const loadingId = notify.loading("Registering emergency patient...");
+
+      try {
+          await createEmergencyVisit(emergencyForm);
+          notify.dismiss(loadingId);
+          notify.success("Emergency patient registered & treated!");
+          // Reset form
+          setEmergencyForm({ patientName: "", age: "", phone: "", diagnosis: "", prescription: "" });
+          setShowEmergencyModal(false);
+          fetchStatus(); // Refresh totals and completed list
+      } catch (error: any) {
+          notify.dismiss(loadingId);
+          notify.error(error.response?.data?.message || "Failed to register emergency patient");
+      } finally {
+          setEmergencyLoading(false);
+      }
   };
 
   // --- STAFF HANDLERS ---
@@ -726,6 +764,30 @@ export default function DoctorDashboard() {
                   <h3 className={`text-lg font-semibold ${theme === 'dark' ? 'text-white' : 'text-gray-900'}`}>Quick Actions</h3>
                 </div>
                 <div className="p-6 space-y-3">
+                  
+                  {/* Emergency Patient */}
+                  <button 
+                    onClick={() => setShowEmergencyModal(true)}
+                    className={`w-full flex items-center justify-between p-4 text-left rounded-xl transition-colors group ${
+                      theme === 'dark' 
+                        ? 'bg-red-900/20 hover:bg-red-900/40 border border-red-900/30' 
+                        : 'bg-red-50 hover:bg-red-100 border border-red-100'
+                    }`}
+                  >
+                    <div className="flex items-center">
+                      <div className={`p-2 rounded-lg mr-3 transition-colors ${
+                        theme === 'dark' ? 'bg-red-900/40 group-hover:bg-red-900/60' : 'bg-red-100 group-hover:bg-red-200'
+                      }`}>
+                        <Zap className={`w-5 h-5 ${theme === 'dark' ? 'text-red-400' : 'text-red-600'}`} />
+                      </div>
+                      <div>
+                        <span className={`font-bold ${theme === 'dark' ? 'text-red-300' : 'text-red-700'}`}>Emergency Patient</span>
+                        <p className={`text-sm ${theme === 'dark' ? 'text-red-400/70' : 'text-red-600/70'}`}>Register & treat instantly</p>
+                      </div>
+                    </div>
+                    <ChevronRight className={`w-5 h-5 ${theme === 'dark' ? 'text-red-500' : 'text-red-400'}`} />
+                  </button>
+
                   <button 
                     onClick={handleViewAllPatients}
                     className={`w-full flex items-center justify-between p-4 text-left rounded-xl transition-colors group ${
@@ -827,8 +889,6 @@ export default function DoctorDashboard() {
           </div>
         </div>
       </div>
-
-      {/* MODALS*/}
       
       <AnimatePresence>
         {isModalOpen && currentPatient && (
@@ -965,6 +1025,98 @@ export default function DoctorDashboard() {
                   </button>
                 </div>
               </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/*EMERGENCY PATIENT MODAL*/}
+      <AnimatePresence>
+        {showEmergencyModal && (
+          <motion.div 
+            initial={{ opacity: 0 }} 
+            animate={{ opacity: 1 }} 
+            exit={{ opacity: 0 }} 
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
+          >
+            <motion.div 
+              initial={{ scale: 0.95, opacity: 0 }} 
+              animate={{ scale: 1, opacity: 1 }} 
+              exit={{ scale: 0.95, opacity: 0 }} 
+              className={`rounded-2xl shadow-2xl w-full max-w-4xl max-h-[95vh] overflow-hidden flex flex-col transition-colors border-2 border-red-500 ${
+                theme === 'dark' ? 'bg-gray-800' : 'bg-white'
+              }`}
+            >
+              
+              <div className="bg-red-600 px-8 py-6 text-white flex justify-between items-center">
+                <div className="flex items-center space-x-3">
+                  <div className="p-2 bg-white/20 rounded-lg animate-pulse">
+                    <Zap className="w-6 h-6" />
+                  </div>
+                  <div>
+                    <h2 className="text-2xl font-bold">Emergency Registration</h2>
+                    <p className="text-red-100 text-sm">Instant entry & treatment submission</p>
+                  </div>
+                </div>
+                <button onClick={() => setShowEmergencyModal(false)} className="p-2 rounded-full hover:bg-red-700 transition">
+                  <X className="w-6 h-6" />
+                </button>
+              </div>
+
+              <div className="flex-1 overflow-y-auto p-8">
+                <form id="emergency-form" onSubmit={handleEmergencySubmit} className="space-y-8">
+                  
+                  {/* Patient Details */}
+                  <div className={`p-5 rounded-xl border ${theme === 'dark' ? 'bg-red-900/10 border-red-900/30' : 'bg-red-50 border-red-100'}`}>
+                    <h3 className={`text-sm font-bold uppercase tracking-wide mb-4 flex items-center ${theme === 'dark' ? 'text-red-400' : 'text-red-700'}`}>
+                      <Users className="w-4 h-4 mr-2" /> Patient Information
+                    </h3>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+                      <div>
+                        <label className={`block text-sm font-medium mb-1 ${theme === 'dark' ? 'text-gray-300' : 'text-gray-700'}`}>Name</label>
+                        <input required type="text" value={emergencyForm.patientName} onChange={e => setEmergencyForm({...emergencyForm, patientName: e.target.value})} className={`w-full px-4 py-2 border rounded-lg outline-none focus:ring-2 focus:ring-red-500 ${theme === 'dark' ? 'bg-gray-900 border-gray-600 text-white' : 'bg-white border-gray-300'}`} placeholder="Patient Name" />
+                      </div>
+                      <div>
+                        <label className={`block text-sm font-medium mb-1 ${theme === 'dark' ? 'text-gray-300' : 'text-gray-700'}`}>Age</label>
+                        <input required type="number" value={emergencyForm.age} onChange={e => setEmergencyForm({...emergencyForm, age: e.target.value})} className={`w-full px-4 py-2 border rounded-lg outline-none focus:ring-2 focus:ring-red-500 ${theme === 'dark' ? 'bg-gray-900 border-gray-600 text-white' : 'bg-white border-gray-300'}`} placeholder="Age" />
+                      </div>
+                      <div>
+                        <label className={`block text-sm font-medium mb-1 ${theme === 'dark' ? 'text-gray-300' : 'text-gray-700'}`}>Phone</label>
+                        <input required type="text" value={emergencyForm.phone} onChange={e => setEmergencyForm({...emergencyForm, phone: e.target.value})} className={`w-full px-4 py-2 border rounded-lg outline-none focus:ring-2 focus:ring-red-500 ${theme === 'dark' ? 'bg-gray-900 border-gray-600 text-white' : 'bg-white border-gray-300'}`} placeholder="Phone Number" />
+                      </div>
+                    </div>
+                  </div>
+
+                  <div>
+                    <h3 className={`text-sm font-bold uppercase tracking-wide mb-4 flex items-center ${theme === 'dark' ? 'text-gray-400' : 'text-gray-600'}`}>
+                      <Activity className="w-4 h-4 mr-2" /> Medical Details
+                    </h3>
+                    <div className="space-y-5">
+                      <div>
+                        <label className={`block text-sm font-semibold mb-2 ${theme === 'dark' ? 'text-white' : 'text-gray-900'}`}>Immediate Diagnosis</label>
+                        <textarea required value={emergencyForm.diagnosis} onChange={e => setEmergencyForm({...emergencyForm, diagnosis: e.target.value})} className={`w-full px-4 py-3 border rounded-xl outline-none focus:ring-2 focus:ring-red-500 h-24 resize-none ${theme === 'dark' ? 'bg-gray-900 border-gray-600 text-white' : 'bg-white border-gray-300'}`} placeholder="Enter diagnosis..." />
+                      </div>
+                      <div>
+                        <label className={`block text-sm font-semibold mb-2 ${theme === 'dark' ? 'text-white' : 'text-gray-900'}`}>Prescription / Treatment</label>
+                        <textarea required value={emergencyForm.prescription} onChange={e => setEmergencyForm({...emergencyForm, prescription: e.target.value})} className={`w-full px-4 py-3 border rounded-xl outline-none focus:ring-2 focus:ring-red-500 h-32 font-mono text-sm ${theme === 'dark' ? 'bg-gray-900 border-gray-600 text-white' : 'bg-white border-gray-300'}`} placeholder="Enter prescription..." />
+                      </div>
+                    </div>
+                  </div>
+
+                </form>
+              </div>
+
+              {/* Emergency Footer */}
+              <div className={`border-t px-8 py-6 ${theme === 'dark' ? 'border-gray-700 bg-gray-900/50' : 'border-gray-200 bg-gray-50'}`}>
+                <div className="flex justify-end space-x-4">
+                  <button onClick={() => setShowEmergencyModal(false)} className={`px-6 py-3 border font-medium rounded-xl transition-colors ${theme === 'dark' ? 'border-gray-600 text-gray-300 hover:bg-gray-700' : 'border-gray-300 text-gray-700 hover:bg-gray-100'}`}>Cancel</button>
+                  <button type="submit" form="emergency-form" disabled={emergencyLoading} className="px-6 py-3 bg-red-600 text-white font-medium rounded-xl hover:bg-red-700 transition-colors flex items-center shadow-lg shadow-red-500/30">
+                    {emergencyLoading ? <Loader2 className="animate-spin w-5 h-5 mr-2" /> : <Save className="w-5 h-5 mr-2" />}
+                    Save & Complete
+                  </button>
+                </div>
+              </div>
+
             </motion.div>
           </motion.div>
         )}

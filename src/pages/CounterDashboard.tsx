@@ -9,7 +9,7 @@ import { notify, ToastContainer } from "../components/ToastNotification";
 // Icons
 import {
   Users, Clock, Printer, UserPlus, CheckCircle,
-  Phone, RefreshCw, UserCheck, FileText
+  Phone, RefreshCw, UserCheck, FileText, AlertOctagon // Added AlertOctagon
 } from "lucide-react";
 
 // Interfaces
@@ -20,6 +20,7 @@ interface VisitData {
   phone: string;
   appointmentNumber: number;
   status?: 'pending' | 'in_progress' | 'completed';
+  visitType?: 'regular' | 'emergency'; // Added visitType property
   date?: string;
   diagnosis?: string;
   prescription?: string;
@@ -92,10 +93,10 @@ export default function CounterDashboard() {
       const res = await createVisit(formData);
       setRegisteredToken(res.appointmentNumber);
       setFormData({ patientName: "", age: "", phone: "" });
-      notify.success(`Patient registered successfully! Token: ${res.appointmentNumber}`); // NEW USAGE
+      notify.success(`Patient registered successfully! Token: ${res.appointmentNumber}`);
       fetchStatus();
     } catch (err: any) {
-      notify.error(err.response?.data?.message || "Registration failed"); // NEW USAGE
+      notify.error(err.response?.data?.message || "Registration failed");
     } finally {
       setRegisterLoading(false);
     }
@@ -108,7 +109,7 @@ export default function CounterDashboard() {
         const res = await getAllTodayVisits();
         setAllPatientsList(res.data);
     } catch (error) {
-        notify.error("Failed to fetch daily list"); // NEW USAGE
+        notify.error("Failed to fetch daily list");
     } finally {
         setLoadingList(false);
     }
@@ -117,7 +118,7 @@ export default function CounterDashboard() {
   // Print Handler
   const handlePrint = async (id: string) => {
     if (isPrintingRef.current) {
-      notify.error("Already printing, please wait..."); // NEW USAGE
+      notify.error("Already printing, please wait...");
       return;
     }
 
@@ -178,7 +179,7 @@ export default function CounterDashboard() {
             <div>
               <h2 class="section-title">PATIENT DETAILS</h2>
               <table class="detail-table">
-                <tr><td>Name:</td><td><strong>${details.patientName}</strong></td></tr>
+                <tr><td>Name:</td><td><strong>${details.patientName} ${details.visitType === 'emergency' ? '(EMERGENCY)' : ''}</strong></td></tr>
                 <tr><td>Age:</td><td>${details.age} years</td></tr>
                 <tr><td>Contact:</td><td>${details.phone}</td></tr>
               </table>
@@ -232,7 +233,7 @@ export default function CounterDashboard() {
             document.body.removeChild(printFrame);
             setIsPrinting(false);
             isPrintingRef.current = false;
-            notify.success("Bill printed successfully!"); // NEW USAGE
+            notify.success("Bill printed successfully!");
           }, 100);
         }, 100);
       };
@@ -240,7 +241,7 @@ export default function CounterDashboard() {
     } catch (error) {
       setIsPrinting(false);
       isPrintingRef.current = false;
-      notify.error("Failed to load bill details"); // NEW USAGE
+      notify.error("Failed to load bill details");
     }
   };
 
@@ -602,7 +603,15 @@ export default function CounterDashboard() {
                               </div>
                             </td>
                             <td className="py-4 px-6">
-                              <div className={`font-medium ${theme === 'dark' ? 'text-white' : 'text-gray-900'}`}>{visit.patientName}</div>
+                              <div className={`font-medium flex items-center ${theme === 'dark' ? 'text-white' : 'text-gray-900'}`}>
+                                {visit.patientName}
+                                {visit.visitType === 'emergency' && (
+                                  <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300 border border-red-200 dark:border-red-800">
+                                    <AlertOctagon className="w-3 h-3 mr-1" />
+                                    Emergency
+                                  </span>
+                                )}
+                              </div>
                             </td>
                             <td className="py-4 px-6">
                               <span className={theme === 'dark' ? 'text-gray-300' : 'text-gray-700'}>{visit.age} years</span>
