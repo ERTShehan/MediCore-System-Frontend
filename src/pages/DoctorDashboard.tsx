@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import Layout from "../components/Layout";
 import { motion, AnimatePresence } from "framer-motion";
 import { useTheme } from "../hooks/useTheme";
@@ -277,6 +277,8 @@ const StatCard = ({
 
 export default function DoctorDashboard() {
   const { theme } = useTheme();
+
+  const prescriptionRef = useRef<HTMLTextAreaElement>(null);
   
   // Patient States
   const [currentPatient, setCurrentPatient] = useState<Visit | null>(null);
@@ -311,6 +313,13 @@ export default function DoctorDashboard() {
   const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [activeSuggestionIndex, setActiveSuggestionIndex] = useState(0);
+
+  const [emMedicineQuery, setEmMedicineQuery] = useState("");
+  const [emSuggestions, setEmSuggestions] = useState<Suggestion[]>([]);
+  const [showEmSuggestions, setShowEmSuggestions] = useState(false);
+  const [activeEmSuggestionIndex, setActiveEmSuggestionIndex] = useState(0);
+
+  const emergencyPrescriptionRef = useRef<HTMLTextAreaElement>(null);
   
   const [confirmationModal, setConfirmationModal] = useState<{
     isOpen: boolean;
@@ -409,6 +418,14 @@ export default function DoctorDashboard() {
       setPrescription(newPrescription);
       setMedicineQuery("");
       setShowSuggestions(false);
+
+      setTimeout(() => {
+        if (prescriptionRef.current) {
+            prescriptionRef.current.focus();
+            prescriptionRef.current.selectionStart = prescriptionRef.current.value.length;
+            prescriptionRef.current.selectionEnd = prescriptionRef.current.value.length;
+        }
+      }, 100);
   };
 
   const handleSuggestionKeyDown = (e: React.KeyboardEvent) => {
@@ -419,6 +436,48 @@ export default function DoctorDashboard() {
       } else if (e.key === "Enter" && showSuggestions && suggestions.length > 0) {
           e.preventDefault();
           addMedicineToPrescription(suggestions[activeSuggestionIndex].name);
+      }
+  };
+
+  useEffect(() => {
+    const fetchEmSuggestions = async () => {
+        if (emMedicineQuery.length >= 2) {
+            try {
+                const res = await searchSuggestions(emMedicineQuery);
+                setEmSuggestions(res.data);
+                setShowEmSuggestions(true);
+            } catch (error) { console.error("Error fetching emergency suggestions"); }
+        } else {
+            setEmSuggestions([]);
+            setShowEmSuggestions(false);
+        }
+    };
+    const timer = setTimeout(fetchEmSuggestions, 300);
+    return () => clearTimeout(timer);
+  }, [emMedicineQuery]);
+
+  const addMedicineToEmergencyPrescription = (medicineName: string) => {
+      const currentPrescription = emergencyForm.prescription;
+      const newPrescription = currentPrescription 
+          ? `${currentPrescription}\n${medicineName} - ` 
+          : `${medicineName} - `;
+      
+      setEmergencyForm(prev => ({ ...prev, prescription: newPrescription }));
+      setEmMedicineQuery("");
+      setShowEmSuggestions(false);
+      setTimeout(() => emergencyPrescriptionRef.current?.focus(), 50);
+  };
+
+  const handleEmSuggestionKeyDown = (e: React.KeyboardEvent) => {
+      if (e.key === "ArrowDown") {
+          e.preventDefault();
+          setActiveEmSuggestionIndex(prev => (prev < emSuggestions.length - 1 ? prev + 1 : prev));
+      } else if (e.key === "ArrowUp") {
+          e.preventDefault();
+          setActiveEmSuggestionIndex(prev => (prev > 0 ? prev - 1 : 0));
+      } else if (e.key === "Enter" && showEmSuggestions && emSuggestions.length > 0) {
+          e.preventDefault();
+          addMedicineToEmergencyPrescription(emSuggestions[activeEmSuggestionIndex].name);
       }
   };
 
@@ -580,7 +639,7 @@ export default function DoctorDashboard() {
   // Recent Patients Component
   const RecentPatients = () => {
     const { theme } = useTheme();
-    
+
     return (
       <div className={`rounded-xl border shadow-sm ${
         theme === 'dark' ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'
@@ -1114,8 +1173,8 @@ export default function DoctorDashboard() {
                     <ChevronRight className={`w-5 h-5 ${theme === 'dark' ? 'text-gray-500 group-hover:text-gray-300' : 'text-gray-400 group-hover:text-gray-600'}`} />
                   </button>
                   
-                  <button 
-                    onClick={() => notify.info("Feature coming soon!")}
+                  <Link
+                    to="/prescription-templates"
                     className={`w-full flex items-center justify-between p-4 text-left rounded-xl transition-colors group ${
                       theme === 'dark' ? 'bg-purple-900/20 hover:bg-purple-900/40' : 'bg-purple-50 hover:bg-purple-100'
                     }`}
@@ -1132,7 +1191,7 @@ export default function DoctorDashboard() {
                       </div>
                     </div>
                     <ChevronRight className={`w-5 h-5 ${theme === 'dark' ? 'text-gray-500 group-hover:text-gray-300' : 'text-gray-400 group-hover:text-gray-600'}`} />
-                  </button>
+                  </Link>
                 </div>
               </div>
 
@@ -1307,6 +1366,7 @@ export default function DoctorDashboard() {
                       </div>
                     </label>
                     <textarea
+                      ref={prescriptionRef}
                       required
                       value={prescription}
                       onChange={(e) => setPrescription(e.target.value)}
@@ -1455,7 +1515,6 @@ export default function DoctorDashboard() {
         )}
       </AnimatePresence>
 
-      {/*EMERGENCY PATIENT MODAL*/}
       <AnimatePresence>
         {showEmergencyModal && (
           <motion.div 
@@ -1473,6 +1532,7 @@ export default function DoctorDashboard() {
               }`}
             >
               
+              {/* Header */}
               <div className="bg-red-600 px-8 py-6 text-white flex justify-between items-center">
                 <div className="flex items-center space-x-3">
                   <div className="p-2 bg-white/20 rounded-lg animate-pulse">
@@ -1491,7 +1551,7 @@ export default function DoctorDashboard() {
               <div className="flex-1 overflow-y-auto p-8">
                 <form id="emergency-form" onSubmit={handleEmergencySubmit} className="space-y-8">
                   
-                  {/* Patient Details */}
+                  {/* Patient Details Section */}
                   <div className={`p-5 rounded-xl border ${
                     theme === 'dark' ? 'bg-red-900/10 border-red-900/30' : 'bg-red-50 border-red-100'
                   }`}>
@@ -1528,6 +1588,7 @@ export default function DoctorDashboard() {
                     </div>
                   </div>
 
+                  {/* Medical Details Section */}
                   <div>
                     <h3 className={`text-sm font-bold uppercase tracking-wide mb-4 flex items-center ${
                       theme === 'dark' ? 'text-gray-400' : 'text-gray-600'
@@ -1535,6 +1596,7 @@ export default function DoctorDashboard() {
                       <Activity className="w-4 h-4 mr-2" /> Medical Details
                     </h3>
                     <div className="space-y-5">
+                      {/* Diagnosis */}
                       <div>
                         <label className={`block text-sm font-semibold mb-2 ${theme === 'dark' ? 'text-white' : 'text-gray-900'}`}>Immediate Diagnosis</label>
                         <textarea required value={emergencyForm.diagnosis} onChange={e => setEmergencyForm({...emergencyForm, diagnosis: e.target.value})} className={`w-full px-4 py-3 border rounded-xl outline-none focus:ring-2 focus:ring-red-500 h-24 resize-none ${
@@ -1543,13 +1605,61 @@ export default function DoctorDashboard() {
                             : 'bg-white border-gray-300 text-gray-900'
                         }`} placeholder="Enter diagnosis..." />
                       </div>
+
+                      {/* Prescription Area with Auto-Complete */}
                       <div>
                         <label className={`block text-sm font-semibold mb-2 ${theme === 'dark' ? 'text-white' : 'text-gray-900'}`}>Prescription / Treatment</label>
-                        <textarea required value={emergencyForm.prescription} onChange={e => setEmergencyForm({...emergencyForm, prescription: e.target.value})} className={`w-full px-4 py-3 border rounded-xl outline-none focus:ring-2 focus:ring-red-500 h-32 font-mono text-sm ${
-                          theme === 'dark' 
-                            ? 'bg-gray-800 border-gray-700 text-white placeholder-gray-500' 
-                            : 'bg-white border-gray-300 text-gray-900'
-                        }`} placeholder="Enter prescription..." />
+                        
+                        {/* Auto-Complete Search Input */}
+                        <div className="relative mb-2">
+                            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                <Search className={`h-4 w-4 ${theme === 'dark' ? 'text-gray-400' : 'text-gray-500'}`} />
+                            </div>
+                            <input 
+                                type="text"
+                                value={emMedicineQuery}
+                                onChange={(e) => setEmMedicineQuery(e.target.value)}
+                                onKeyDown={handleEmSuggestionKeyDown}
+                                placeholder="Type medicine name to auto-search..."
+                                className={`w-full pl-10 pr-4 py-2 border rounded-lg outline-none focus:ring-2 focus:ring-red-500 text-sm ${
+                                  theme === 'dark' 
+                                    ? 'bg-gray-800 border-gray-700 text-white placeholder-gray-500' 
+                                    : 'bg-white border-gray-300 text-gray-900'
+                                }`}
+                            />
+                            {/* Suggestions Dropdown */}
+                            {showEmSuggestions && emSuggestions.length > 0 && (
+                                <ul className={`absolute z-10 w-full mt-1 border rounded-lg shadow-lg max-h-48 overflow-auto ${theme === 'dark' ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}>
+                                    {emSuggestions.map((suggestion, index) => (
+                                        <li 
+                                            key={suggestion._id}
+                                            onClick={() => addMedicineToEmergencyPrescription(suggestion.name)}
+                                            className={`px-4 py-2 cursor-pointer text-sm flex items-center justify-between ${
+                                                index === activeEmSuggestionIndex 
+                                                    ? 'bg-red-600 text-white' 
+                                                    : theme === 'dark' ? 'text-gray-200 hover:bg-gray-700' : 'text-gray-800 hover:bg-gray-100'
+                                            }`}
+                                        >
+                                            {suggestion.name}
+                                        </li>
+                                    ))}
+                                </ul>
+                            )}
+                        </div>
+
+                        {/* Text Area */}
+                        <textarea 
+                            ref={emergencyPrescriptionRef}
+                            required 
+                            value={emergencyForm.prescription} 
+                            onChange={e => setEmergencyForm({...emergencyForm, prescription: e.target.value})} 
+                            className={`w-full px-4 py-3 border rounded-xl outline-none focus:ring-2 focus:ring-red-500 h-32 font-mono text-sm transition-colors ${
+                              theme === 'dark' 
+                                ? 'bg-gray-800 border-gray-700 text-white placeholder-gray-500' 
+                                : 'bg-white border-gray-300 text-gray-900'
+                            }`} 
+                            placeholder="Enter prescription..." 
+                        />
                       </div>
                     </div>
                   </div>
@@ -1557,7 +1667,7 @@ export default function DoctorDashboard() {
                 </form>
               </div>
 
-              {/* Emergency Footer */}
+              {/* Footer  */}
               <div className={`border-t px-8 py-6 ${
                 theme === 'dark' ? 'border-gray-800 bg-gray-900' : 'border-gray-200 bg-gray-50'
               }`}>
