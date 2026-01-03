@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate, Link } from "react-router-dom";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import { useAuth } from "../context/authContext";
-import { loginUser } from "../services/auth";
+import { loginUser, sendForgotPasswordOTP, resetPasswordWithOTP } from "../services/auth";
 import logo from "../assets/medicore-logo.png";
 import ThemeToggle from "../components/ThemeToggle";
 import { useTheme } from "../hooks/useTheme";
+import { Loader2, Mail, Lock, CheckCircle, AlertCircle, X, Key, Eye, EyeOff } from "lucide-react";
 
 interface LoginFormData {
   email: string;
@@ -18,7 +19,16 @@ interface LoginResponse {
   roles: string[];
 }
 
+interface PasswordValidation {
+  length: boolean;
+  uppercase: boolean;
+  lowercase: boolean;
+  number: boolean;
+  specialChar: boolean;
+}
+
 const Login: React.FC = () => {
+  // Login States
   const [formData, setFormData] = useState<LoginFormData>({
     email: "",
     password: "",
@@ -27,6 +37,28 @@ const Login: React.FC = () => {
   const [loading, setLoading] = useState<boolean>(false);
   const [showPassword, setShowPassword] = useState<boolean>(false);
   
+  // Forgot Password Modal States
+  const [showForgotModal, setShowForgotModal] = useState(false);
+  const [otpStep, setOtpStep] = useState<1 | 2>(1);
+  const [resetEmail, setResetEmail] = useState("");
+  const [otpCode, setOtpCode] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmResetPassword, setConfirmResetPassword] = useState("");
+  const [resetLoading, setResetLoading] = useState(false);
+  const [resetMessage, setResetMessage] = useState({ type: "", text: "" });
+  
+  // Modal Password Visibility
+  const [showNewPassword, setShowNewPassword] = useState(false);
+
+  // Password Validation State
+  const [passwordValidation, setPasswordValidation] = useState<PasswordValidation>({
+    length: false,
+    uppercase: false,
+    lowercase: false,
+    number: false,
+    specialChar: false,
+  });
+
   const { setUser } = useAuth();
   const navigate = useNavigate();
   const { theme } = useTheme();
@@ -65,11 +97,9 @@ const Login: React.FC = () => {
         throw new Error("Login failed: No token received");
       }
 
-      // Store tokens securely
       localStorage.setItem("accessToken", accessToken);
       localStorage.setItem("refreshToken", refreshToken);
 
-      // Set user in context
       setUser(res.data);
 
       // Navigate based on user role
@@ -79,34 +109,107 @@ const Login: React.FC = () => {
     } catch (err: any) {
       console.error("Login Error:", err);
       const errorMessage = err.response?.data?.message || 
-                          err.message || 
-                          "Invalid email or password. Please try again.";
+                           err.message || 
+                           "Invalid email or password. Please try again.";
       setError(errorMessage);
     } finally {
       setLoading(false);
     }
   };
 
-  // Redirect user based on their role
   const redirectBasedOnRole = (role: string) => {
     const routes: Record<string, string> = {
       doctor: "/doctor-dashboard",
       counter: "/counter-dashboard",
-      admin: "/admin-dashboard",
       default: "/"
     };
     
     navigate(routes[role] || routes.default);
   };
 
-  // Handle Enter key press for form submission
   const handleKeyPress = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !loading) {
       handleLogin(e as any);
     }
   };
 
-  // System features for the left panel
+
+  const validatePassword = (password: string) => {
+    setPasswordValidation({
+      length: password.length >= 8,
+      uppercase: /[A-Z]/.test(password),
+      lowercase: /[a-z]/.test(password),
+      number: /[0-9]/.test(password),
+      specialChar: /[!@#$%^&*(),.?":{}|<>]/.test(password),
+    });
+  };
+
+  const handleNewPasswordChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const val = e.target.value;
+    setNewPassword(val);
+    validatePassword(val);
+  };
+
+  const handleSendOTP = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!resetEmail) return setResetMessage({ type: "error", text: "Please enter your email address" });
+    
+    setResetLoading(true);
+    setResetMessage({ type: "", text: "" });
+
+    try {
+      await sendForgotPasswordOTP(resetEmail);
+      setResetMessage({ type: "success", text: "OTP Code has been sent to your email!" });
+      
+      setTimeout(() => {
+        setOtpStep(2);
+        setResetMessage({ type: "", text: "" });
+      }, 1500);
+
+    } catch (err: any) {
+      setResetMessage({ type: "error", text: err.response?.data?.message || "Failed to send OTP. Please try again." });
+    } finally {
+      setResetLoading(false);
+    }
+  };
+
+  const handleResetPasswordSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const isPasswordValid = Object.values(passwordValidation).every(Boolean);
+
+    if (otpCode.length !== 4) return setResetMessage({ type: "error", text: "Please enter the 4-digit OTP code" });
+    if (!isPasswordValid) return setResetMessage({ type: "error", text: "Password does not meet the security requirements" });
+    if (newPassword !== confirmResetPassword) return setResetMessage({ type: "error", text: "Passwords do not match" });
+
+    setResetLoading(true);
+    setResetMessage({ type: "", text: "" });
+
+    try {
+      await resetPasswordWithOTP({
+        email: resetEmail,
+        otp: otpCode,
+        newPassword
+      });
+      
+      setResetMessage({ type: "success", text: "Password reset successful! You can now login." });
+      
+      setTimeout(() => {
+        setShowForgotModal(false);
+        setOtpStep(1);
+        setResetEmail("");
+        setOtpCode("");
+        setNewPassword("");
+        setConfirmResetPassword("");
+        setResetMessage({ type: "", text: "" });
+      }, 2000);
+
+    } catch (err: any) {
+      setResetMessage({ type: "error", text: err.response?.data?.message || "Failed to reset password. Check OTP." });
+    } finally {
+      setResetLoading(false);
+    }
+  };
+
   const systemFeatures = [
     { title: "PHI Compliant Security", icon: "🔒" },
     { title: "Real-time Analytics", icon: "📊" },
@@ -116,6 +219,15 @@ const Login: React.FC = () => {
     { title: "Patient Records", icon: "📁" },
   ];
 
+  // Password Requirements List for Display
+  const passwordRequirementsList = [
+    { label: "At least 8 characters", valid: passwordValidation.length },
+    { label: "One uppercase letter", valid: passwordValidation.uppercase },
+    { label: "One lowercase letter", valid: passwordValidation.lowercase },
+    { label: "One number", valid: passwordValidation.number },
+    { label: "One special character", valid: passwordValidation.specialChar },
+  ];
+
   return (
     <div className={`min-h-screen transition-colors duration-300 ${
       theme === 'dark' 
@@ -123,7 +235,7 @@ const Login: React.FC = () => {
         : 'bg-linear-to-br from-gray-50 to-blue-50 text-gray-800'
     }`}>
       
-      <nav className={`fixed top-0 left-0 right-0 backdrop-blur-lg z-50 border-b transition-all duration-300 ${
+      <nav className={`fixed top-0 left-0 right-0 backdrop-blur-lg z-40 border-b transition-all duration-300 ${
         theme === 'dark'
           ? 'bg-gray-900/90 border-gray-800'
           : 'bg-white/90 border-gray-200'
@@ -303,9 +415,7 @@ const Login: React.FC = () => {
                       : 'bg-red-50 border-red-200 text-red-600'
                   }`}
                 >
-                  <svg className="w-5 h-5 shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
+                  <AlertCircle className="w-5 h-5 shrink-0 mt-0.5" />
                   <span className="text-sm">{error}</span>
                 </motion.div>
               )}
@@ -321,11 +431,9 @@ const Login: React.FC = () => {
                   </label>
                   <div className="relative">
                     <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                      <svg className={`h-5 w-5 ${
+                      <Mail className={`h-5 w-5 ${
                         theme === 'dark' ? 'text-gray-500' : 'text-gray-400'
-                      }`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-                      </svg>
+                      }`} />
                     </div>
                     <input
                       type="email"
@@ -352,8 +460,9 @@ const Login: React.FC = () => {
                     }`}>
                       Password
                     </label>
-                    <Link 
-                      to="/forgot-password" 
+                    <button
+                      type="button"
+                      onClick={() => setShowForgotModal(true)}
                       className={`text-sm font-medium transition-colors ${
                         theme === 'dark'
                           ? 'text-blue-400 hover:text-blue-300'
@@ -361,15 +470,13 @@ const Login: React.FC = () => {
                       }`}
                     >
                       Forgot Password?
-                    </Link>
+                    </button>
                   </div>
                   <div className="relative">
                     <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                      <svg className={`h-5 w-5 ${
+                      <Lock className={`h-5 w-5 ${
                         theme === 'dark' ? 'text-gray-500' : 'text-gray-400'
-                      }`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-                      </svg>
+                      }`} />
                     </div>
                     <input
                       type={showPassword ? "text" : "password"}
@@ -394,14 +501,9 @@ const Login: React.FC = () => {
                       aria-label={showPassword ? "Hide password" : "Show password"}
                     >
                       {showPassword ? (
-                        <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                        </svg>
+                        <EyeOff className="h-5 w-5" />
                       ) : (
-                        <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.878 9.878L6.59 6.59m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />
-                        </svg>
+                        <Eye className="h-5 w-5" />
                       )}
                     </button>
                   </div>
@@ -418,10 +520,7 @@ const Login: React.FC = () => {
                 >
                   {loading ? (
                     <span className="flex items-center justify-center gap-3">
-                      <svg className="animate-spin h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                      </svg>
+                      <Loader2 className="animate-spin h-5 w-5" />
                       Signing in...
                     </span>
                   ) : (
@@ -468,6 +567,188 @@ const Login: React.FC = () => {
           </motion.div>
         </div>
       </div>
+
+      <AnimatePresence>
+        {showForgotModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+            <motion.div 
+              initial={{ scale: 0.95, opacity: 0 }} 
+              animate={{ scale: 1, opacity: 1 }} 
+              exit={{ scale: 0.95, opacity: 0 }}
+              className={`w-full max-w-md p-6 rounded-2xl shadow-2xl relative ${
+                theme === 'dark' ? 'bg-gray-800 text-gray-100' : 'bg-white text-gray-900'
+              }`}
+            >
+              <button 
+                onClick={() => {
+                  setShowForgotModal(false);
+                  setOtpStep(1);
+                  setResetEmail("");
+                  setResetMessage({ type: "", text: "" });
+                }} 
+                className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 transition-colors"
+              >
+                <X className="w-6 h-6" />
+              </button>
+
+              <div className="flex items-center gap-3 mb-6">
+                <div className={`p-3 rounded-full ${
+                  theme === 'dark' ? 'bg-blue-900/30' : 'bg-blue-50'
+                }`}>
+                  <Key className={`w-6 h-6 ${
+                    theme === 'dark' ? 'text-blue-400' : 'text-blue-600'
+                  }`} />
+                </div>
+                <div>
+                  <h2 className="text-xl font-bold">
+                    {otpStep === 1 ? "Reset Password" : "New Password"}
+                  </h2>
+                  <p className={`text-sm ${
+                    theme === 'dark' ? 'text-gray-400' : 'text-gray-500'
+                  }`}>
+                    {otpStep === 1 ? "We'll send a code to your email" : "Secure your account"}
+                  </p>
+                </div>
+              </div>
+              
+              {/* Message Display */}
+              {resetMessage.text && (
+                <div className={`mb-4 p-3 rounded-lg text-sm flex items-center gap-2 ${
+                  resetMessage.type === 'error' 
+                    ? 'bg-red-500/10 text-red-500 border border-red-500/20' 
+                    : 'bg-emerald-500/10 text-emerald-500 border border-emerald-500/20'
+                }`}>
+                  {resetMessage.type === 'error' ? <AlertCircle className="w-4 h-4"/> : <CheckCircle className="w-4 h-4"/>}
+                  {resetMessage.text}
+                </div>
+              )}
+
+              {/* Enter Email */}
+              {otpStep === 1 && (
+                <form onSubmit={handleSendOTP} className="space-y-4">
+                  <div>
+                    <label className={`block text-sm font-medium mb-1 ${
+                      theme === 'dark' ? 'text-gray-300' : 'text-gray-700'
+                    }`}>Email Address</label>
+                    <div className="relative">
+                      <Mail className="absolute left-3 top-3.5 w-5 h-5 text-gray-400" />
+                      <input 
+                        type="email" 
+                        value={resetEmail} 
+                        onChange={(e) => setResetEmail(e.target.value)} 
+                        required
+                        className={`w-full pl-10 pr-4 py-3 rounded-lg border outline-none focus:ring-2 focus:ring-blue-500 transition-all ${
+                          theme === 'dark' ? 'bg-gray-700 border-gray-600 text-white' : 'bg-gray-50 border-gray-300'
+                        }`} 
+                        placeholder="doctor@example.com" 
+                      />
+                    </div>
+                  </div>
+                  <button 
+                    type="submit" 
+                    disabled={resetLoading} 
+                    className="w-full py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium flex justify-center items-center gap-2 transition-colors"
+                  >
+                    {resetLoading ? <Loader2 className="animate-spin w-5 h-5" /> : "Send OTP"}
+                  </button>
+                </form>
+              )}
+
+              {/* Verify OTP & New Password */}
+              {otpStep === 2 && (
+                <form onSubmit={handleResetPasswordSubmit} className="space-y-4">
+                  <div>
+                    <label className={`block text-sm font-medium mb-1 ${
+                      theme === 'dark' ? 'text-gray-300' : 'text-gray-700'
+                    }`}>4-Digit OTP Code</label>
+                    <input 
+                      type="text" 
+                      maxLength={4} 
+                      value={otpCode} 
+                      onChange={(e) => setOtpCode(e.target.value)} 
+                      required
+                      className={`w-full p-3 text-center text-2xl tracking-widest rounded-lg border outline-none focus:ring-2 focus:ring-blue-500 transition-all ${
+                        theme === 'dark' ? 'bg-gray-700 border-gray-600 text-white' : 'bg-gray-50 border-gray-300'
+                      }`} 
+                      placeholder="0000" 
+                    />
+                  </div>
+
+                  <div>
+                    <label className={`block text-sm font-medium mb-1 ${
+                      theme === 'dark' ? 'text-gray-300' : 'text-gray-700'
+                    }`}>New Password</label>
+                    <div className="relative">
+                      <input 
+                        type={showNewPassword ? "text" : "password"} 
+                        value={newPassword} 
+                        onChange={handleNewPasswordChange} 
+                        required
+                        className={`w-full p-3 pr-10 rounded-lg border outline-none focus:ring-2 focus:ring-blue-500 transition-all ${
+                          theme === 'dark' ? 'bg-gray-700 border-gray-600 text-white' : 'bg-gray-50 border-gray-300'
+                        }`} 
+                        placeholder="New Password" 
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowNewPassword(!showNewPassword)}
+                        className="absolute right-3 top-3.5 text-gray-400 hover:text-gray-600"
+                      >
+                        {showNewPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                      </button>
+                    </div>
+                    
+                    {/* Password Requirements List */}
+                    <div className="mt-2 space-y-1 bg-black/5 dark:bg-white/5 p-3 rounded-lg">
+                      {passwordRequirementsList.map((req, i) => (
+                        <div key={i} className="flex items-center gap-2 text-xs transition-all duration-300">
+                          <div className={`w-4 h-4 rounded-full flex items-center justify-center shrink-0 ${
+                            req.valid ? 'bg-emerald-500' : theme === 'dark' ? 'bg-gray-600' : 'bg-gray-300'
+                          }`}>
+                            {req.valid && <CheckCircle className="w-3 h-3 text-white" />}
+                          </div>
+                          <span className={`${
+                            req.valid 
+                              ? 'text-emerald-600 dark:text-emerald-400 font-medium' 
+                              : theme === 'dark' ? 'text-gray-400' : 'text-gray-500'
+                          }`}>
+                            {req.label}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className={`block text-sm font-medium mb-1 ${
+                      theme === 'dark' ? 'text-gray-300' : 'text-gray-700'
+                    }`}>Confirm Password</label>
+                    <input 
+                      type="password" 
+                      value={confirmResetPassword} 
+                      onChange={(e) => setConfirmResetPassword(e.target.value)} 
+                      required
+                      className={`w-full p-3 rounded-lg border outline-none focus:ring-2 focus:ring-blue-500 transition-all ${
+                        theme === 'dark' ? 'bg-gray-700 border-gray-600 text-white' : 'bg-gray-50 border-gray-300'
+                      }`} 
+                      placeholder="Confirm Password" 
+                    />
+                  </div>
+
+                  <button 
+                    type="submit" 
+                    disabled={resetLoading} 
+                    className="w-full py-3 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 font-medium flex justify-center items-center gap-2 transition-colors shadow-lg shadow-emerald-500/20"
+                  >
+                    {resetLoading ? <Loader2 className="animate-spin w-5 h-5" /> : "Reset Password"}
+                  </button>
+                </form>
+              )}
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
     </div>
   );
 };

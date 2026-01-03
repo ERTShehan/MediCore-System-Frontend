@@ -27,11 +27,10 @@ import {
   Stethoscope, Pill, History,
   ChevronRight, CheckCircle,
   AlertCircle, X, Info,
-  AlertTriangle, Loader2, Play,
+  AlertTriangle, Loader2,
   Zap, Save, User, Phone, Hash,
-  BarChart3, Shield, Plus, MoreVertical,
-  Search, Filter, Download, Eye,
-  Bell, Settings, HelpCircle, LogOut, PlusCircle
+  Shield, Search, Filter, Download, Eye,
+  Bell, Settings
 } from "lucide-react";
 
 // Types
@@ -187,9 +186,13 @@ const DashboardHeader = ({ currentTime }: { currentTime: string }) => {
             <button className={`p-2 rounded-lg ${theme === 'dark' ? 'hover:bg-gray-800' : 'hover:bg-gray-100'}`}>
               <Settings className="w-5 h-5 text-gray-500 dark:text-gray-400" />
             </button>
-            <button className={`p-2 rounded-lg ${theme === 'dark' ? 'hover:bg-gray-800' : 'hover:bg-gray-100'}`}>
-              <User className="w-5 h-5 text-gray-500 dark:text-gray-400" />
-            </button>
+            <Link 
+                to="/doctor-profile" 
+                className={`p-2 rounded-lg transition-colors ${theme === 'dark' ? 'hover:bg-gray-800' : 'hover:bg-gray-100'}`}
+                title="Manage Profile"
+              >
+                <User className="w-5 h-5 text-gray-500 dark:text-gray-400" />
+            </Link>
           </div>
         </div>
       </div>
@@ -1588,7 +1591,6 @@ export default function DoctorDashboard() {
                     </div>
                   </div>
 
-                  {/* Medical Details Section */}
                   <div>
                     <h3 className={`text-sm font-bold uppercase tracking-wide mb-4 flex items-center ${
                       theme === 'dark' ? 'text-gray-400' : 'text-gray-600'

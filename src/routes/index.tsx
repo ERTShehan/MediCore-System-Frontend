@@ -10,6 +10,7 @@ const CounterDashboard = lazy(() => import("../pages/CounterDashboard"));
 const Features = lazy(() => import("../pages/Features"));
 const Pricing = lazy(() => import("../pages/Pricing"));
 const PrescriptionTemplates = lazy(() => import("../pages/PrescriptionTemplates"));
+const DoctorProfileManage = lazy(() => import("../pages/DoctorProfileManage"));
 
 type RequireAuthTypes = { children: ReactNode; roles?: string[] };
 
@@ -69,6 +70,15 @@ export default function Router() {
             element={
               <RequireAuth roles={["doctor"]}>
                 <PrescriptionTemplates />
+              </RequireAuth>
+            }
+          />
+
+          <Route
+            path="/doctor-profile"
+            element={
+              <RequireAuth roles={["doctor"]}>
+                <DoctorProfileManage />
               </RequireAuth>
             }
           />
