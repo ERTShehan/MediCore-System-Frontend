@@ -12,7 +12,7 @@ import { notify, ToastContainer } from "../components/ToastNotification";
 import { 
   Search, Save, Trash2, Image as ImageIcon, 
   Loader2, ArrowLeft, ChevronUp, Plus,
-  Upload, Grid, List,
+  Upload,
   CheckCircle
 } from "lucide-react";
 import { Link } from "react-router-dom";
@@ -61,7 +61,7 @@ export default function PrescriptionTemplates() {
   const [isLoadingMore, setIsLoadingMore] = useState(false);      
   const [visibleCount, setVisibleCount] = useState(6); // Initial load
   const [showScrollTop, setShowScrollTop] = useState(false);
-  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
+  // const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   
   const loadMoreRef = useRef<HTMLDivElement>(null);
 

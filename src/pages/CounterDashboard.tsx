@@ -9,7 +9,9 @@ import { notify, ToastContainer } from "../components/ToastNotification";
 // Icons
 import {
   Users, Clock, Printer, UserPlus, CheckCircle,
-  Phone, RefreshCw, UserCheck, FileText, AlertOctagon // Added AlertOctagon
+  Phone, RefreshCw, UserCheck, FileText, AlertOctagon,
+  Hash, Calendar, Activity, Download,
+  Search, Filter, ArrowUpRight, Loader2
 } from "lucide-react";
 
 // Interfaces
@@ -20,7 +22,7 @@ interface VisitData {
   phone: string;
   appointmentNumber: number;
   status?: 'pending' | 'in_progress' | 'completed';
-  visitType?: 'regular' | 'emergency'; // Added visitType property
+  visitType?: 'regular' | 'emergency';
   date?: string;
   diagnosis?: string;
   prescription?: string;
@@ -46,6 +48,7 @@ export default function CounterDashboard() {
 
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isPrinting, setIsPrinting] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
 
   const printFrameRef = useRef<HTMLIFrameElement>(null);
   const isPrintingRef = useRef(false);
@@ -114,6 +117,13 @@ export default function CounterDashboard() {
         setLoadingList(false);
     }
   };
+
+  // Filter completed patients based on search
+  const filteredCompletedList = completedList.filter(patient =>
+    patient.patientName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    patient.appointmentNumber.toString().includes(searchQuery) ||
+    patient.phone.includes(searchQuery)
+  );
 
   // Print Handler
   const handlePrint = async (id: string) => {
@@ -205,13 +215,13 @@ export default function CounterDashboard() {
               <div class="prescription-box">${details.prescription || "No medicines prescribed."}</div>
             </div>
           </div>
-          <div class="bill-summary">
-            <div class="section-header"><h3>BILL SUMMARY</h3></div>
-            <table class="summary-table">
-              <thead><tr><th>Description</th><th>Amount (LKR)</th></tr></thead>
-              <tbody><tr class="total-row"><td>TOTAL AMOUNT</td><td>2500.00</td></tr></tbody>
-            </table>
-          </div>
+          // <div class="bill-summary">
+          //   <div class="section-header"><h3>BILL SUMMARY</h3></div>
+          //   <table class="summary-table">
+          //     <thead><tr><th>Description</th><th>Amount (LKR)</th></tr></thead>
+          //     <tbody><tr class="total-row"><td>TOTAL AMOUNT</td><td>2500.00</td></tr></tbody>
+          //   </table>
+          // </div>
           <div class="footer">
             <p style="font-weight: 600; margin-bottom: 8px;">THANK YOU FOR CHOOSING MEDICORE CLINIC</p>
             <p style="color: #6b7280; font-size: 12px;">This is a computer generated bill</p>
@@ -245,203 +255,284 @@ export default function CounterDashboard() {
     }
   };
 
+  // Stats Cards Component
+  const StatsCard = ({ title, value, icon: Icon, color = "blue", trend }: { 
+    title: string; 
+    value: string | number; 
+    icon: any; 
+    color?: "blue" | "green" | "purple" | "orange";
+    trend?: string;
+  }) => {
+    const colorClasses = {
+      blue: {
+        bg: theme === 'dark' ? 'bg-blue-900/20' : 'bg-blue-50',
+        icon: theme === 'dark' ? 'text-blue-400' : 'text-blue-600',
+        border: theme === 'dark' ? 'border-blue-900/30' : 'border-blue-200'
+      },
+      green: {
+        bg: theme === 'dark' ? 'bg-emerald-900/20' : 'bg-emerald-50',
+        icon: theme === 'dark' ? 'text-emerald-400' : 'text-emerald-600',
+        border: theme === 'dark' ? 'border-emerald-900/30' : 'border-emerald-200'
+      },
+      purple: {
+        bg: theme === 'dark' ? 'bg-purple-900/20' : 'bg-purple-50',
+        icon: theme === 'dark' ? 'text-purple-400' : 'text-purple-600',
+        border: theme === 'dark' ? 'border-purple-900/30' : 'border-purple-200'
+      },
+      orange: {
+        bg: theme === 'dark' ? 'bg-orange-900/20' : 'bg-orange-50',
+        icon: theme === 'dark' ? 'text-orange-400' : 'text-orange-600',
+        border: theme === 'dark' ? 'border-orange-900/30' : 'border-orange-200'
+      }
+    };
+
+    return (
+      <div className={`rounded-xl border p-5 ${colorClasses[color].border} ${
+        theme === 'dark' ? 'bg-gray-800/50' : 'bg-white'
+      } shadow-sm hover:shadow-md transition-shadow`}>
+        <div className="flex items-start justify-between">
+          <div>
+            <p className={`text-sm font-medium ${theme === 'dark' ? 'text-gray-400' : 'text-gray-600'}`}>
+              {title}
+            </p>
+            <div className="flex items-baseline space-x-2 mt-2">
+              <p className={`text-2xl font-bold ${theme === 'dark' ? 'text-white' : 'text-gray-900'}`}>
+                {value}
+              </p>
+              {trend && (
+                <span className="text-xs px-1.5 py-0.5 rounded-full bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400">
+                  {trend}
+                </span>
+              )}
+            </div>
+          </div>
+          <div className={`p-3 rounded-lg ${colorClasses[color].bg}`}>
+            <Icon className={`w-5 h-5 ${colorClasses[color].icon}`} />
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   return (
     <Layout>
       <ToastContainer />
 
       <div className={`min-h-screen transition-colors duration-300 ${
-        theme === 'dark' ? 'bg-gray-900' : 'bg-gray-50'
+        theme === 'dark' ? 'bg-gray-950' : 'bg-gray-50'
       }`}>
         {/* Header */}
-        <div className={`border-b px-8 py-6 transition-colors duration-300 ${
-          theme === 'dark' ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'
+        <div className={`sticky top-0 z-40 border-b shadow-sm ${
+          theme === 'dark' ? 'bg-gray-900 border-gray-800' : 'bg-white border-gray-200'
         }`}>
-          <div className="flex justify-between items-center">
-            <div>
-              <h1 className={`text-2xl font-bold ${
-                theme === 'dark' ? 'text-white' : 'text-gray-900'
-              }`}>Counter Dashboard</h1>
-            </div>
-            <div className="flex items-center space-x-4">
-              
-              <button
-                onClick={handleViewAllPatients}
-                className="inline-flex items-center px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors shadow-sm"
-              >
-                <FileText className="w-4 h-4 mr-2" />
-                Today Registered Patient
-              </button>
-
-              <button
-                onClick={handleManualRefresh}
-                disabled={isRefreshing}
-                className={`inline-flex items-center px-4 py-2 border text-sm font-medium rounded-lg transition-colors ${
-                  theme === 'dark' 
-                    ? 'bg-gray-700 border-gray-600 text-gray-200 hover:bg-gray-600' 
-                    : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50'
-                }`}
-              >
-                <RefreshCw className={`w-4 h-4 mr-2 ${isRefreshing ? 'animate-spin' : ''}`} />
-                Refresh(Auto Refresh)
-              </button>
+          <div className="px-6 py-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <h1 className={`text-2xl font-bold ${theme === 'dark' ? 'text-white' : 'text-gray-900'}`}>
+                  Counter Dashboard
+                </h1>
+                <p className={`text-sm mt-1 ${theme === 'dark' ? 'text-gray-400' : 'text-gray-600'}`}>
+                  Patient registration and queue management • Today, {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
+                </p>
+              </div>
+              <div className="flex items-center space-x-4">
+                <div className="flex items-center space-x-3">
+                  <button
+                    onClick={handleViewAllPatients}
+                    className={`px-4 py-2.5 border text-sm font-medium rounded-lg transition-colors flex items-center ${
+                      theme === 'dark'
+                        ? 'border-gray-700 text-gray-300 hover:bg-gray-800'
+                        : 'border-gray-300 text-gray-700 hover:bg-gray-50'
+                    }`}
+                  >
+                    <FileText className="w-4 h-4 mr-2" />
+                    Today's Patients
+                  </button>
+                  <button
+                    onClick={handleManualRefresh}
+                    disabled={isRefreshing}
+                    className={`px-4 py-2.5 text-sm font-medium rounded-lg transition-colors flex items-center ${
+                      theme === 'dark'
+                        ? 'bg-gray-800 text-gray-300 hover:bg-gray-700'
+                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                    }`}
+                  >
+                    <RefreshCw className={`w-4 h-4 mr-2 ${isRefreshing ? 'animate-spin' : ''}`} />
+                    {isRefreshing ? 'Refreshing...' : 'Refresh'}
+                  </button>
+                  <button className="px-4 py-2.5 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors flex items-center">
+                    <Download className="w-4 h-4 mr-2" />
+                    Export
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
         </div>
 
-        <div className="p-8 space-y-8">
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            <div className={`lg:col-span-2 rounded-xl border shadow-sm p-6 transition-colors duration-300 ${
-              theme === 'dark' ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'
-            }`}>
-              <div className="flex items-center justify-between mb-6">
-                <div className="flex items-center">
-                  <div className={`p-2 rounded-lg mr-3 ${
-                    theme === 'dark' ? 'bg-blue-900/30' : 'bg-blue-50'
-                  }`}>
-                    <UserCheck className={`w-6 h-6 ${theme === 'dark' ? 'text-blue-400' : 'text-blue-600'}`} />
-                  </div>
-                  <div>
-                    <h2 className={`text-lg font-semibold ${theme === 'dark' ? 'text-white' : 'text-gray-900'}`}>Now Consulting</h2>
-                    <p className={`text-sm ${theme === 'dark' ? 'text-gray-400' : 'text-gray-500'}`}>Live patient status</p>
-                  </div>
-                </div>
-                <div className={`flex items-center text-sm ${theme === 'dark' ? 'text-gray-400' : 'text-gray-500'}`}>
-                  <Clock className="w-4 h-4 mr-1" />
-                  {new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                </div>
-              </div>
-
-              {currentPatient ? (
-                <div className={`border rounded-xl p-6 transition-colors duration-300 ${
-                  theme === 'dark' 
-                    ? 'bg-linear-to-r from-blue-900/40 to-indigo-900/40 border-blue-800' 
-                    : 'bg-linear-to-r from-blue-50 to-indigo-50 border-blue-100'
-                }`}>
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <div className={`text-sm font-medium uppercase tracking-wider mb-1 ${
-                        theme === 'dark' ? 'text-blue-300' : 'text-blue-600'
-                      }`}>
-                        Currently with Doctor
-                      </div>
-                      <div className="flex items-baseline space-x-4">
-                        <span className={`text-4xl font-bold ${theme === 'dark' ? 'text-white' : 'text-gray-900'}`}>
-                          Token #{currentPatient.appointmentNumber}
-                        </span>
-                        <span className={`text-lg font-semibold ${theme === 'dark' ? 'text-gray-300' : 'text-gray-700'}`}>
-                          {currentPatient.patientName}
-                        </span>
-                      </div>
-                      <div className={`flex items-center space-x-4 mt-4 text-sm ${
-                        theme === 'dark' ? 'text-gray-400' : 'text-gray-600'
-                      }`}>
-                        <span className="flex items-center">
-                          <Users className="w-4 h-4 mr-1" />
-                          Age: {currentPatient.age}
-                        </span>
-                        <span className="flex items-center">
-                          <Phone className="w-4 h-4 mr-1" />
-                          {currentPatient.phone}
-                        </span>
-                      </div>
-                    </div>
-                    <div className="text-5xl animate-pulse">🩺</div>
-                  </div>
-                </div>
-              ) : (
-                <div className={`border rounded-xl p-8 text-center transition-colors duration-300 ${
-                  theme === 'dark' ? 'bg-gray-900/50 border-gray-700' : 'bg-gray-50 border-gray-200'
-                }`}>
-                  <Clock className={`w-12 h-12 mx-auto mb-3 ${theme === 'dark' ? 'text-gray-600' : 'text-gray-300'}`} />
-                  <h3 className={`text-lg font-semibold mb-2 ${theme === 'dark' ? 'text-gray-300' : 'text-gray-700'}`}>No Active Consultation</h3>
-                  <p className={theme === 'dark' ? 'text-gray-500' : 'text-gray-500'}>The doctor is currently not seeing any patient</p>
-                </div>
-              )}
-            </div>
-
-            {/* Queue Stats Card */}
-            <div className={`rounded-xl border shadow-sm p-6 transition-colors duration-300 ${
-              theme === 'dark' ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'
-            }`}>
-              <div className="flex items-center mb-6">
-                <div className={`p-2 rounded-lg mr-3 ${theme === 'dark' ? 'bg-purple-900/30' : 'bg-purple-50'}`}>
-                  <Users className={`w-6 h-6 ${theme === 'dark' ? 'text-purple-400' : 'text-purple-600'}`} />
-                </div>
-                <div>
-                  <h2 className={`text-lg font-semibold ${theme === 'dark' ? 'text-white' : 'text-gray-900'}`}>Queue Overview</h2>
-                  <p className={`text-sm ${theme === 'dark' ? 'text-gray-400' : 'text-gray-500'}`}>Real-time statistics</p>
-                </div>
-              </div>
-
-              <div className="space-y-4">
-                <div className={`flex items-center justify-between p-3 rounded-lg ${
-                  theme === 'dark' ? 'bg-blue-900/20' : 'bg-blue-50'
-                }`}>
-                  <div className="flex items-center">
-                    <Users className={`w-5 h-5 mr-3 ${theme === 'dark' ? 'text-blue-400' : 'text-blue-600'}`} />
-                    <div>
-                      <p className={`text-sm font-medium ${theme === 'dark' ? 'text-gray-200' : 'text-gray-700'}`}>Today's Total</p>
-                      <p className={`text-xs ${theme === 'dark' ? 'text-gray-400' : 'text-gray-500'}`}>All patients (Reg)</p>
-                    </div>
-                  </div>
-                  <span className={`text-2xl font-bold ${theme === 'dark' ? 'text-white' : 'text-gray-900'}`}>
-                    {totalToday}
-                  </span>
-                </div>
-
-                <div className={`flex items-center justify-between p-3 rounded-lg ${
-                  theme === 'dark' ? 'bg-emerald-900/20' : 'bg-emerald-50'
-                }`}>
-                  <div className="flex items-center">
-                    <CheckCircle className={`w-5 h-5 mr-3 ${theme === 'dark' ? 'text-emerald-400' : 'text-emerald-600'}`} />
-                    <div>
-                      <p className={`text-sm font-medium ${theme === 'dark' ? 'text-gray-200' : 'text-gray-700'}`}>Completed</p>
-                      <p className={`text-xs ${theme === 'dark' ? 'text-gray-400' : 'text-gray-500'}`}>Ready for bill</p>
-                    </div>
-                  </div>
-                  <span className={`text-2xl font-bold ${theme === 'dark' ? 'text-white' : 'text-gray-900'}`}>
-                    {completedList.length}
-                  </span>
-                </div>
-
-                <div className={`flex items-center justify-between p-3 rounded-lg ${
-                  theme === 'dark' ? 'bg-amber-900/20' : 'bg-amber-50'
-                }`}>
-                  <div className="flex items-center">
-                    <Clock className={`w-5 h-5 mr-3 ${theme === 'dark' ? 'text-amber-400' : 'text-amber-600'}`} />
-                    <div>
-                      <p className={`text-sm font-medium ${theme === 'dark' ? 'text-gray-200' : 'text-gray-700'}`}>In Progress</p>
-                      <p className={`text-xs ${theme === 'dark' ? 'text-gray-400' : 'text-gray-500'}`}>With doctor</p>
-                    </div>
-                  </div>
-                  <span className={`text-2xl font-bold ${theme === 'dark' ? 'text-white' : 'text-gray-900'}`}>
-                    {currentPatient ? 1 : 0}
-                  </span>
-                </div>
-              </div>
-            </div>
+        <div className="p-6">
+          {/* Stats Overview */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+            <StatsCard 
+              title="Total Today" 
+              value={totalToday} 
+              icon={Users} 
+              color="blue"
+            />
+            <StatsCard 
+              title="Completed" 
+              value={completedList.length} 
+              icon={CheckCircle} 
+              color="green"
+              trend="Ready"
+            />
+            <StatsCard 
+              title="In Progress" 
+              value={currentPatient ? 1 : 0} 
+              icon={Activity} 
+              color="purple"
+            />
+            <StatsCard 
+              title="System Status" 
+              value="Active" 
+              icon={Clock} 
+              color="orange"
+              trend="Live"
+            />
           </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-            
-            <div className="lg:col-span-1">
-              <div className={`rounded-xl border shadow-sm overflow-hidden transition-colors duration-300 ${
-                theme === 'dark' ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+            {/* Current Consultation Card */}
+            <div className="lg:col-span-2">
+              <div className={`rounded-xl border shadow-sm ${
+                theme === 'dark' ? 'bg-gray-900 border-gray-800' : 'bg-white border-gray-200'
               }`}>
-                <div className={`border-b px-6 py-4 ${theme === 'dark' ? 'border-gray-700' : 'border-gray-200'}`}>
-                  <div className="flex items-center">
-                    <div className={`p-2 rounded-lg mr-3 ${theme === 'dark' ? 'bg-blue-900/30' : 'bg-blue-50'}`}>
-                      <UserPlus className={`w-5 h-5 ${theme === 'dark' ? 'text-blue-400' : 'text-blue-600'}`} />
-                    </div>
+                <div className="p-6">
+                  <div className="flex items-center justify-between mb-6">
                     <div>
-                      <h2 className={`text-lg font-semibold ${theme === 'dark' ? 'text-white' : 'text-gray-900'}`}>New Patient Registration</h2>
-                      <p className={`text-sm ${theme === 'dark' ? 'text-gray-400' : 'text-gray-500'}`}>Register and generate token</p>
+                      <h2 className={`text-xl font-bold ${theme === 'dark' ? 'text-white' : 'text-gray-900'}`}>Current Consultation</h2>
+                      <p className={`text-sm mt-1 ${theme === 'dark' ? 'text-gray-400' : 'text-gray-600'}`}>
+                        Patient currently with doctor
+                      </p>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <span className={`px-3 py-1 text-sm font-medium rounded-full ${
+                        theme === 'dark' ? 'bg-green-900/30 text-green-400' : 'bg-green-100 text-green-800'
+                      }`}>
+                        <Clock className="w-4 h-4 inline mr-1" />
+                        Live
+                      </span>
                     </div>
                   </div>
-                </div>
 
+                  {currentPatient ? (
+                    <div className={`rounded-xl p-6 border ${
+                      theme === 'dark' 
+                        ? 'bg-linear-to-r from-blue-900/20 to-blue-900/10 border-blue-800/30' 
+                        : 'bg-linear-to-r from-blue-50 to-blue-50/50 border-blue-200'
+                    }`}>
+                      <div className="flex items-start justify-between">
+                        <div className="flex items-start space-x-4">
+                          <div className={`w-16 h-16 rounded-xl flex items-center justify-center ${
+                            theme === 'dark' ? 'bg-blue-900/30' : 'bg-blue-100'
+                          }`}>
+                            <UserCheck className={`w-8 h-8 ${theme === 'dark' ? 'text-blue-400' : 'text-blue-600'}`} />
+                          </div>
+                          <div>
+                            <div className={`text-sm font-medium mb-2 ${theme === 'dark' ? 'text-blue-300' : 'text-blue-700'}`}>
+                              NOW CONSULTING
+                            </div>
+                            <h3 className={`text-2xl font-bold mb-3 ${theme === 'dark' ? 'text-white' : 'text-gray-900'}`}>
+                              {currentPatient.patientName}
+                            </h3>
+                            <div className="flex flex-wrap gap-4">
+                              <div className="flex items-center space-x-2">
+                                <div className={`p-1.5 rounded ${
+                                  theme === 'dark' ? 'bg-gray-800' : 'bg-gray-100'
+                                }`}>
+                                  <Hash className={`w-4 h-4 ${theme === 'dark' ? 'text-gray-400' : 'text-gray-600'}`} />
+                                </div>
+                                <div>
+                                  <div className={`text-xs ${theme === 'dark' ? 'text-gray-400' : 'text-gray-600'}`}>Token Number</div>
+                                  <div className={`font-bold ${theme === 'dark' ? 'text-white' : 'text-gray-900'}`}>
+                                    #{currentPatient.appointmentNumber}
+                                  </div>
+                                </div>
+                              </div>
+                              <div className="flex items-center space-x-2">
+                                <div className={`p-1.5 rounded ${
+                                  theme === 'dark' ? 'bg-gray-800' : 'bg-gray-100'
+                                }`}>
+                                  <Users className={`w-4 h-4 ${theme === 'dark' ? 'text-gray-400' : 'text-gray-600'}`} />
+                                </div>
+                                <div>
+                                  <div className={`text-xs ${theme === 'dark' ? 'text-gray-400' : 'text-gray-600'}`}>Age</div>
+                                  <div className={`font-medium ${theme === 'dark' ? 'text-white' : 'text-gray-900'}`}>
+                                    {currentPatient.age} years
+                                  </div>
+                                </div>
+                              </div>
+                              <div className="flex items-center space-x-2">
+                                <div className={`p-1.5 rounded ${
+                                  theme === 'dark' ? 'bg-gray-800' : 'bg-gray-100'
+                                }`}>
+                                  <Phone className={`w-4 h-4 ${theme === 'dark' ? 'text-gray-400' : 'text-gray-600'}`} />
+                                </div>
+                                <div>
+                                  <div className={`text-xs ${theme === 'dark' ? 'text-gray-400' : 'text-gray-600'}`}>Contact</div>
+                                  <div className={`font-medium ${theme === 'dark' ? 'text-white' : 'text-gray-900'}`}>
+                                    {currentPatient.phone}
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                        <div className="text-5xl animate-pulse">
+                          🩺
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className={`rounded-xl p-8 text-center border ${
+                      theme === 'dark' ? 'bg-gray-800/50 border-gray-700' : 'bg-gray-50 border-gray-200'
+                    }`}>
+                      <Clock className={`w-16 h-16 mx-auto mb-4 ${theme === 'dark' ? 'text-gray-700' : 'text-gray-300'}`} />
+                      <h3 className={`text-xl font-semibold mb-2 ${theme === 'dark' ? 'text-gray-300' : 'text-gray-700'}`}>No Active Consultation</h3>
+                      <p className={`mb-6 max-w-md mx-auto ${theme === 'dark' ? 'text-gray-500' : 'text-gray-600'}`}>
+                        The doctor is currently not seeing any patient. Patients will appear here once consultation begins.
+                      </p>
+                      <div className={`inline-flex items-center text-sm ${theme === 'dark' ? 'text-gray-400' : 'text-gray-500'}`}>
+                        <Clock className="w-4 h-4 mr-2" />
+                        Last updated: {new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Registration Form */}
+            <div>
+              <div className={`rounded-xl border shadow-sm ${
+                theme === 'dark' ? 'bg-gray-900 border-gray-800' : 'bg-white border-gray-200'
+              }`}>
                 <div className="p-6">
-                  <form onSubmit={handleRegister} className="space-y-6">
+                  <div className="flex items-center justify-between mb-6">
+                    <div>
+                      <h2 className={`text-xl font-bold ${theme === 'dark' ? 'text-white' : 'text-gray-900'}`}>New Patient Registration</h2>
+                      <p className={`text-sm mt-1 ${theme === 'dark' ? 'text-gray-400' : 'text-gray-600'}`}>
+                        Register patient and generate token
+                      </p>
+                    </div>
+                    <div className={`p-2 rounded-lg ${
+                      theme === 'dark' ? 'bg-blue-900/30' : 'bg-blue-100'
+                    }`}>
+                      <UserPlus className={`w-5 h-5 ${theme === 'dark' ? 'text-blue-400' : 'text-blue-600'}`} />
+                    </div>
+                  </div>
+
+                  <form onSubmit={handleRegister} className="space-y-4">
                     <div>
                       <label className={`block text-sm font-medium mb-2 ${theme === 'dark' ? 'text-gray-300' : 'text-gray-700'}`}>
                         Full Name
@@ -452,10 +543,10 @@ export default function CounterDashboard() {
                         required
                         value={formData.patientName}
                         onChange={e => setFormData({...formData, patientName: e.target.value})}
-                        className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition ${
+                        className={`w-full px-4 py-3 border rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition ${
                           theme === 'dark' 
-                            ? 'bg-gray-900 border-gray-600 text-white placeholder-gray-500' 
-                            : 'border-gray-300 bg-white text-gray-900'
+                            ? 'bg-gray-800 border-gray-700 text-white placeholder-gray-500' 
+                            : 'bg-white border-gray-300 text-gray-900'
                         }`}
                       />
                     </div>
@@ -469,12 +560,14 @@ export default function CounterDashboard() {
                           type="number"
                           placeholder="Age"
                           required
+                          min="1"
+                          max="120"
                           value={formData.age}
                           onChange={e => setFormData({...formData, age: e.target.value})}
-                          className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition ${
+                          className={`w-full px-4 py-3 border rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition ${
                             theme === 'dark' 
-                              ? 'bg-gray-900 border-gray-600 text-white placeholder-gray-500' 
-                              : 'border-gray-300 bg-white text-gray-900'
+                              ? 'bg-gray-800 border-gray-700 text-white placeholder-gray-500' 
+                              : 'bg-white border-gray-300 text-gray-900'
                           }`}
                         />
                       </div>
@@ -486,12 +579,13 @@ export default function CounterDashboard() {
                           type="tel"
                           placeholder="Phone number"
                           required
+                          pattern="[0-9]{10}"
                           value={formData.phone}
                           onChange={e => setFormData({...formData, phone: e.target.value})}
-                          className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition ${
+                          className={`w-full px-4 py-3 border rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition ${
                             theme === 'dark' 
-                              ? 'bg-gray-900 border-gray-600 text-white placeholder-gray-500' 
-                              : 'border-gray-300 bg-white text-gray-900'
+                              ? 'bg-gray-800 border-gray-700 text-white placeholder-gray-500' 
+                              : 'bg-white border-gray-300 text-gray-900'
                           }`}
                         />
                       </div>
@@ -500,14 +594,11 @@ export default function CounterDashboard() {
                     <button
                       type="submit"
                       disabled={registerLoading}
-                      className="w-full py-3.5 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
+                      className="w-full py-3.5 bg-linear-to-r from-blue-600 to-blue-700 text-white font-semibold rounded-xl hover:from-blue-700 hover:to-blue-800 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center shadow-lg shadow-blue-500/20"
                     >
                       {registerLoading ? (
                         <>
-                          <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" fill="none" viewBox="0 0 24 24">
-                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                          </svg>
+                          <Loader2 className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" />
                           Processing...
                         </>
                       ) : (
@@ -526,8 +617,8 @@ export default function CounterDashboard() {
                       animate={{ scale: 1, opacity: 1 }}
                       className={`mt-6 p-4 border rounded-xl ${
                         theme === 'dark' 
-                          ? 'bg-emerald-900/20 border-emerald-800' 
-                          : 'bg-linear-to-r from-emerald-50 to-green-50 border-emerald-200'
+                          ? 'bg-linear-to-r from-emerald-900/20 to-emerald-900/10 border-emerald-800/30' 
+                          : 'bg-linear-to-r from-emerald-50 to-emerald-50/50 border-emerald-200'
                       }`}
                     >
                       <div className="flex items-center justify-between">
@@ -536,8 +627,12 @@ export default function CounterDashboard() {
                           <p className={`text-xs ${theme === 'dark' ? 'text-emerald-400' : 'text-emerald-600'}`}>Successfully registered</p>
                         </div>
                         <div className="text-right">
-                          <p className={`text-3xl font-bold ${theme === 'dark' ? 'text-emerald-200' : 'text-emerald-900'}`}>#{registeredToken}</p>
-                          <p className={`text-xs mt-1 ${theme === 'dark' ? 'text-emerald-400' : 'text-emerald-600'}`}>Ready for consultation</p>
+                          <div className={`text-3xl font-bold ${theme === 'dark' ? 'text-emerald-200' : 'text-emerald-900'}`}>
+                            #{registeredToken}
+                          </div>
+                          <div className={`text-xs mt-1 ${theme === 'dark' ? 'text-emerald-400' : 'text-emerald-600'}`}>
+                            Ready for consultation
+                          </div>
                         </div>
                       </div>
                     </motion.div>
@@ -545,122 +640,167 @@ export default function CounterDashboard() {
                 </div>
               </div>
             </div>
+          </div>
 
-            {/* Right Column - Completed Patients */}
-            <div className="lg:col-span-2">
-              <div className={`rounded-xl border shadow-sm overflow-hidden transition-colors duration-300 ${
-                theme === 'dark' ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'
-              }`}>
-                <div className={`border-b px-6 py-4 ${theme === 'dark' ? 'border-gray-700' : 'border-gray-200'}`}>
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center">
-                      <div className={`p-2 rounded-lg mr-3 ${theme === 'dark' ? 'bg-emerald-900/30' : 'bg-emerald-50'}`}>
-                        <CheckCircle className={`w-5 h-5 ${theme === 'dark' ? 'text-emerald-400' : 'text-emerald-600'}`} />
-                      </div>
-                      <div>
-                        <h2 className={`text-lg font-semibold ${theme === 'dark' ? 'text-white' : 'text-gray-900'}`}>Completed Treatments</h2>
-                        <p className={`text-sm ${theme === 'dark' ? 'text-gray-400' : 'text-gray-500'}`}>Ready for billing and discharge</p>
-                      </div>
-                    </div>
-                    <span className={`px-3 py-1 text-sm font-medium rounded-full ${
-                      theme === 'dark' ? 'bg-emerald-900/50 text-emerald-300' : 'bg-emerald-100 text-emerald-800'
-                    }`}>
-                      {completedList.length} patients
-                    </span>
-                  </div>
+          {/* Completed Treatments Table */}
+          <div className={`rounded-xl border shadow-sm overflow-hidden ${
+            theme === 'dark' ? 'bg-gray-900 border-gray-800' : 'bg-white border-gray-200'
+          }`}>
+            <div className="p-6">
+              <div className="flex items-center justify-between mb-6">
+                <div>
+                  <h2 className={`text-xl font-bold ${theme === 'dark' ? 'text-white' : 'text-gray-900'}`}>Completed Treatments</h2>
+                  <p className={`text-sm mt-1 ${theme === 'dark' ? 'text-gray-400' : 'text-gray-600'}`}>
+                    Ready for billing and discharge • {filteredCompletedList.length} patients
+                  </p>
                 </div>
+                <div className="flex items-center space-x-3">
+                  <div className="relative">
+                    <Search className={`absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 ${
+                      theme === 'dark' ? 'text-gray-500' : 'text-gray-400'
+                    }`} />
+                    <input
+                      type="text"
+                      placeholder="Search patients..."
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      className={`pl-10 pr-4 py-2.5 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none ${
+                        theme === 'dark' 
+                          ? 'bg-gray-800 border-gray-700 text-white placeholder-gray-500' 
+                          : 'bg-white border-gray-300 text-gray-900'
+                      }`}
+                    />
+                  </div>
+                  <button className={`p-2.5 border rounded-lg ${
+                    theme === 'dark' 
+                      ? 'border-gray-700 text-gray-400 hover:bg-gray-800' 
+                      : 'border-gray-300 text-gray-500 hover:bg-gray-50'
+                  }`}>
+                    <Filter className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
 
-                <div className="overflow-x-auto">
-                  {completedList.length === 0 ? (
-                    <div className="py-16 text-center">
-                      <CheckCircle className={`w-16 h-16 mx-auto mb-4 ${theme === 'dark' ? 'text-gray-600' : 'text-gray-300'}`} />
-                      <h3 className={`text-lg font-semibold mb-2 ${theme === 'dark' ? 'text-gray-300' : 'text-gray-900'}`}>No Completed Treatments</h3>
-                      <p className={`max-w-md mx-auto ${theme === 'dark' ? 'text-gray-500' : 'text-gray-500'}`}>
-                        Patients who have completed their consultation will appear here for billing.
-                      </p>
-                    </div>
-                  ) : (
+              {completedList.length === 0 ? (
+                <div className="py-16 text-center">
+                  <CheckCircle className={`w-16 h-16 mx-auto mb-4 ${theme === 'dark' ? 'text-gray-700' : 'text-gray-300'}`} />
+                  <h3 className={`text-lg font-semibold mb-2 ${theme === 'dark' ? 'text-gray-300' : 'text-gray-900'}`}>No Completed Treatments</h3>
+                  <p className={`max-w-md mx-auto ${theme === 'dark' ? 'text-gray-500' : 'text-gray-600'}`}>
+                    Patients who have completed their consultation will appear here for billing.
+                  </p>
+                </div>
+              ) : (
+                <>
+                  <div className="overflow-hidden rounded-lg border">
                     <table className="w-full">
                       <thead>
-                        <tr className={`border-b ${theme === 'dark' ? 'bg-gray-900/50 border-gray-700' : 'bg-gray-50 border-gray-200'}`}>
-                          <th className={`text-left py-4 px-6 text-sm font-semibold ${theme === 'dark' ? 'text-gray-300' : 'text-gray-700'}`}>Token No.</th>
-                          <th className={`text-left py-4 px-6 text-sm font-semibold ${theme === 'dark' ? 'text-gray-300' : 'text-gray-700'}`}>Patient Name</th>
-                          <th className={`text-left py-4 px-6 text-sm font-semibold ${theme === 'dark' ? 'text-gray-300' : 'text-gray-700'}`}>Age</th>
-                          <th className={`text-left py-4 px-6 text-sm font-semibold ${theme === 'dark' ? 'text-gray-300' : 'text-gray-700'}`}>Contact</th>
-                          <th className={`text-left py-4 px-6 text-sm font-semibold ${theme === 'dark' ? 'text-gray-300' : 'text-gray-700'}`}>Actions</th>
+                        <tr className={`border-b ${
+                          theme === 'dark' ? 'bg-gray-800 border-gray-700' : 'bg-gray-50 border-gray-200'
+                        }`}>
+                          <th className="text-left py-4 px-6 text-sm font-semibold text-gray-700 dark:text-gray-300">Token No.</th>
+                          <th className="text-left py-4 px-6 text-sm font-semibold text-gray-700 dark:text-gray-300">Patient Details</th>
+                          <th className="text-left py-4 px-6 text-sm font-semibold text-gray-700 dark:text-gray-300">Status</th>
+                          <th className="text-left py-4 px-6 text-sm font-semibold text-gray-700 dark:text-gray-300">Actions</th>
                         </tr>
                       </thead>
-                      <tbody className={`divide-y ${theme === 'dark' ? 'divide-gray-700' : 'divide-gray-200'}`}>
-                        {completedList.map((visit) => (
-                          <tr key={visit._id} className={`transition-colors ${theme === 'dark' ? 'hover:bg-gray-700/50' : 'hover:bg-gray-50'}`}>
-                            <td className="py-4 px-6">
-                              <div className="flex items-center">
-                                <div className={`w-10 h-10 rounded-lg flex items-center justify-center mr-3 ${
+                      <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
+                        {filteredCompletedList.map((visit) => (
+                          <tr key={visit._id} className="group hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
+                            <td className="py-5 px-6">
+                              <div className="flex items-center space-x-3">
+                                <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${
                                   theme === 'dark' ? 'bg-blue-900/30' : 'bg-blue-50'
                                 }`}>
-                                  <span className={`font-bold ${theme === 'dark' ? 'text-blue-400' : 'text-blue-700'}`}>#{visit.appointmentNumber}</span>
+                                  <span className={`text-lg font-bold ${theme === 'dark' ? 'text-blue-400' : 'text-blue-700'}`}>
+                                    #{visit.appointmentNumber}
+                                  </span>
                                 </div>
                               </div>
                             </td>
-                            <td className="py-4 px-6">
-                              <div className={`font-medium flex items-center ${theme === 'dark' ? 'text-white' : 'text-gray-900'}`}>
-                                {visit.patientName}
-                                {visit.visitType === 'emergency' && (
-                                  <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300 border border-red-200 dark:border-red-800">
-                                    <AlertOctagon className="w-3 h-3 mr-1" />
-                                    Emergency
+                            <td className="py-5 px-6">
+                              <div className="space-y-1">
+                                <div className="flex items-center space-x-2">
+                                  <span className={`font-medium ${theme === 'dark' ? 'text-white' : 'text-gray-900'}`}>
+                                    {visit.patientName}
                                   </span>
-                                )}
+                                  {visit.visitType === 'emergency' && (
+                                    <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300 border border-red-200 dark:border-red-800">
+                                      <AlertOctagon className="w-3 h-3 mr-1" />
+                                      Emergency
+                                    </span>
+                                  )}
+                                </div>
+                                <div className="flex items-center space-x-4 text-sm">
+                                  <span className={`flex items-center ${theme === 'dark' ? 'text-gray-400' : 'text-gray-600'}`}>
+                                    <Users className="w-3 h-3 mr-1" />
+                                    {visit.age} years
+                                  </span>
+                                  <span className={`flex items-center ${theme === 'dark' ? 'text-gray-400' : 'text-gray-600'}`}>
+                                    <Phone className="w-3 h-3 mr-1" />
+                                    {visit.phone}
+                                  </span>
+                                </div>
                               </div>
                             </td>
-                            <td className="py-4 px-6">
-                              <span className={theme === 'dark' ? 'text-gray-300' : 'text-gray-700'}>{visit.age} years</span>
+                            <td className="py-5 px-6">
+                              <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${
+                                theme === 'dark' 
+                                  ? 'bg-emerald-900/30 text-emerald-400 border border-emerald-800/50' 
+                                  : 'bg-emerald-100 text-emerald-800 border border-emerald-200'
+                              }`}>
+                                <CheckCircle className="w-4 h-4 mr-1.5" />
+                                Ready for Billing
+                              </span>
                             </td>
-                            <td className="py-4 px-6">
-                              <div className={`flex items-center ${theme === 'dark' ? 'text-gray-300' : 'text-gray-700'}`}>
-                                <Phone className={`w-4 h-4 mr-2 ${theme === 'dark' ? 'text-gray-500' : 'text-gray-400'}`} />
-                                {visit.phone}
+                            <td className="py-5 px-6">
+                              <div className="flex items-center space-x-3">
+                                <button
+                                  onClick={() => handlePrint(visit._id)}
+                                  disabled={isPrinting}
+                                  className="inline-flex items-center px-4 py-2.5 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-sm"
+                                >
+                                  {isPrinting ? (
+                                    <>
+                                      <Loader2 className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" />
+                                      Printing...
+                                    </>
+                                  ) : (
+                                    <>
+                                      <Printer className="w-4 h-4 mr-2" />
+                                      Print Bill
+                                    </>
+                                  )}
+                                </button>
+                                <button className={`p-2 border rounded-lg ${
+                                  theme === 'dark' 
+                                    ? 'border-gray-700 text-gray-400 hover:bg-gray-800' 
+                                    : 'border-gray-300 text-gray-500 hover:bg-gray-50'
+                                }`}>
+                                  <ArrowUpRight className="w-4 h-4" />
+                                </button>
                               </div>
-                            </td>
-                            <td className="py-4 px-6">
-                              <button
-                                onClick={() => handlePrint(visit._id)}
-                                disabled={isPrinting}
-                                className="inline-flex items-center px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                              >
-                                {isPrinting ? (
-                                  <>
-                                    <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
-                                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                                    </svg>
-                                    Printing...
-                                  </>
-                                ) : (
-                                  <>
-                                    <Printer className="w-4 h-4 mr-2" />
-                                    Print Bill
-                                  </>
-                                )}
-                              </button>
                             </td>
                           </tr>
                         ))}
                       </tbody>
                     </table>
-                  )}
-                </div>
+                  </div>
 
-                {completedList.length > 0 && (
-                  <div className={`border-t px-6 py-4 ${
-                    theme === 'dark' ? 'border-gray-700 bg-gray-900/50' : 'border-gray-200 bg-gray-50'
+                  <div className={`mt-6 flex items-center justify-between text-sm ${
+                    theme === 'dark' ? 'text-gray-400' : 'text-gray-600'
                   }`}>
-                    <div className={`text-sm ${theme === 'dark' ? 'text-gray-400' : 'text-gray-600'}`}>
-                      Showing {completedList.length} completed treatments
+                    <div>
+                      Showing {filteredCompletedList.length} of {completedList.length} completed treatments
+                    </div>
+                    <div className="flex items-center space-x-4">
+                      <button className="flex items-center text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300">
+                        <Calendar className="w-4 h-4 mr-1.5" />
+                        View All
+                      </button>
                     </div>
                   </div>
-                )}
-              </div>
+                </>
+              )}
             </div>
           </div>
         </div>
