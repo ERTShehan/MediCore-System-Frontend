@@ -4,14 +4,17 @@ import { motion, AnimatePresence } from "framer-motion";
 import { useTheme } from "../hooks/useTheme";
 import { Link } from "react-router-dom";
 
+// --- REDUX IMPORTS ---
+import { useAppDispatch, useAppSelector } from "../redux/store";
+import { fetchQueue } from "../redux/slices/visitSlice";
+
 // Services
 import { 
-    requestNextPatient, 
-    submitTreatment, 
-    getPatientHistory, 
-    getQueueStatus, 
-    getAllTodayVisits,
-    createEmergencyVisit
+  requestNextPatient, 
+  submitTreatment, 
+  getPatientHistory, 
+  getAllTodayVisits,
+  createEmergencyVisit
 } from "../services/visit";
 import { createStaff, getMyStaff, deleteStaff, toggleStaffStatus } from "../services/staff";
 import { searchSuggestions } from "../services/template";
@@ -22,7 +25,7 @@ import { notify, ToastContainer } from "../components/ToastNotification";
 
 // Icons
 import { 
-  Users, Activity, Calendar, Clock, 
+  Users, Calendar, Clock, 
   UserPlus, Trash2, FileText,
   Stethoscope, Pill, History,
   ChevronRight, CheckCircle,
@@ -55,8 +58,8 @@ interface Visit {
 }
 
 interface Suggestion {
-    _id: string;
-    name: string;
+  _id: string;
+  name: string;
 }
 
 const ConfirmationModal = ({
@@ -187,11 +190,11 @@ const DashboardHeader = ({ currentTime }: { currentTime: string }) => {
               <Settings className="w-5 h-5 text-gray-500 dark:text-gray-400" />
             </button>
             <Link 
-                to="/doctor-profile" 
-                className={`p-2 rounded-lg transition-colors ${theme === 'dark' ? 'hover:bg-gray-800' : 'hover:bg-gray-100'}`}
-                title="Manage Profile"
-              >
-                <User className="w-5 h-5 text-gray-500 dark:text-gray-400" />
+              to="/doctor-profile" 
+              className={`p-2 rounded-lg transition-colors ${theme === 'dark' ? 'hover:bg-gray-800' : 'hover:bg-gray-100'}`}
+              title="Manage Profile"
+            >
+              <User className="w-5 h-5 text-gray-500 dark:text-gray-400" />
             </Link>
           </div>
         </div>
@@ -280,11 +283,15 @@ const StatCard = ({
 
 export default function DoctorDashboard() {
   const { theme } = useTheme();
+  const dispatch = useAppDispatch();
+
+  // --- REDUX STATE ---
+  // Instead of local state, we use selectors for queue data
+  const { currentPatient, completedList, totalToday } = useAppSelector((state) => state.visit);
 
   const prescriptionRef = useRef<HTMLTextAreaElement>(null);
   
-  // Patient States
-  const [currentPatient, setCurrentPatient] = useState<Visit | null>(null);
+  // Patient States (UI Specific)
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [historyList, setHistoryList] = useState<Visit[]>([]);
   const [showHistoryModal, setShowHistoryModal] = useState(false);
@@ -296,7 +303,7 @@ export default function DoctorDashboard() {
   const [showEmergencyModal, setShowEmergencyModal] = useState(false);
   const [emergencyLoading, setEmergencyLoading] = useState(false);
   const [emergencyForm, setEmergencyForm] = useState({
-      patientName: "", age: "", phone: "", diagnosis: "", prescription: ""
+    patientName: "", age: "", phone: "", diagnosis: "", prescription: ""
   });
 
   // Staff States
@@ -304,9 +311,6 @@ export default function DoctorDashboard() {
   const [showAddStaffForm, setShowAddStaffForm] = useState(false);
   const [staffLoading, setStaffLoading] = useState(true);
   const [staffFormData, setStaffFormData] = useState({ name: "", email: "", password: "" });
-
-  const [totalToday, setTotalToday] = useState<number>(0);
-  const [completedList, setCompletedList] = useState<Visit[]>([]); 
 
   const [showAllPatientsModal, setShowAllPatientsModal] = useState(false);
   const [allPatientsList, setAllPatientsList] = useState<Visit[]>([]);
@@ -351,31 +355,16 @@ export default function DoctorDashboard() {
     return () => clearInterval(intervalId);
   }, []);
 
-  //Initial Poll to check state
+  // --- REDUX POLLING ---
+  // Polling fetchQueue thunk instead of a local fetch function
   useEffect(() => {
     const interval = setInterval(() => {
-      fetchStatus();
+      dispatch(fetchQueue());
     }, 3000);
       
-    fetchStatus(); 
+    dispatch(fetchQueue()); 
     return () => clearInterval(interval);
-  }, []);
-
-  const fetchStatus = async () => {
-    try {
-      const data = await getQueueStatus();
-      if (data.currentPatient) {
-         setCurrentPatient(data.currentPatient);
-      } else {
-         if (!isModalOpen) setCurrentPatient(null);
-      }
-      
-      setCompletedList(data.completedList || []);
-      setTotalToday(data.totalToday || 0); 
-    } catch (err) {
-      console.error("Queue poll error", err);
-    }
-  };
+  }, [dispatch]);
 
   useEffect(() => {
     fetchStaff();
@@ -395,18 +384,18 @@ export default function DoctorDashboard() {
 
   useEffect(() => {
     const fetchSuggestions = async () => {
-        if (medicineQuery.length >= 2) {
-            try {
-                const res = await searchSuggestions(medicineQuery);
-                setSuggestions(res.data);
-                setShowSuggestions(true);
-            } catch (error) {
-                console.error("Error fetching suggestions");
-            }
-        } else {
-            setSuggestions([]);
-            setShowSuggestions(false);
+      if (medicineQuery.length >= 2) {
+        try {
+          const res = await searchSuggestions(medicineQuery);
+          setSuggestions(res.data);
+          setShowSuggestions(true);
+        } catch (error) {
+          console.error("Error fetching suggestions");
         }
+      } else {
+        setSuggestions([]);
+        setShowSuggestions(false);
+      }
     };
 
     const timer = setTimeout(fetchSuggestions, 300);
@@ -414,80 +403,82 @@ export default function DoctorDashboard() {
   }, [medicineQuery]);
 
   const addMedicineToPrescription = (medicineName: string) => {
-      const newPrescription = prescription 
-          ? `${prescription}\n${medicineName}` 
-          : medicineName;
-      
-      setPrescription(newPrescription);
-      setMedicineQuery("");
-      setShowSuggestions(false);
+    const newPrescription = prescription 
+      ? `${prescription}\n${medicineName}` 
+      : medicineName;
+    
+    setPrescription(newPrescription);
+    setMedicineQuery("");
+    setShowSuggestions(false);
 
-      setTimeout(() => {
-        if (prescriptionRef.current) {
-            prescriptionRef.current.focus();
-            prescriptionRef.current.selectionStart = prescriptionRef.current.value.length;
-            prescriptionRef.current.selectionEnd = prescriptionRef.current.value.length;
-        }
-      }, 100);
+    setTimeout(() => {
+      if (prescriptionRef.current) {
+        prescriptionRef.current.focus();
+        prescriptionRef.current.selectionStart = prescriptionRef.current.value.length;
+        prescriptionRef.current.selectionEnd = prescriptionRef.current.value.length;
+      }
+    }, 100);
   };
 
   const handleSuggestionKeyDown = (e: React.KeyboardEvent) => {
-      if (e.key === "ArrowDown") {
-          setActiveSuggestionIndex(prev => (prev < suggestions.length - 1 ? prev + 1 : prev));
-      } else if (e.key === "ArrowUp") {
-          setActiveSuggestionIndex(prev => (prev > 0 ? prev - 1 : 0));
-      } else if (e.key === "Enter" && showSuggestions && suggestions.length > 0) {
-          e.preventDefault();
-          addMedicineToPrescription(suggestions[activeSuggestionIndex].name);
-      }
+    if (e.key === "ArrowDown") {
+      setActiveSuggestionIndex(prev => (prev < suggestions.length - 1 ? prev + 1 : prev));
+    } else if (e.key === "ArrowUp") {
+      setActiveSuggestionIndex(prev => (prev > 0 ? prev - 1 : 0));
+    } else if (e.key === "Enter" && showSuggestions && suggestions.length > 0) {
+      e.preventDefault();
+      addMedicineToPrescription(suggestions[activeSuggestionIndex].name);
+    }
   };
 
   useEffect(() => {
     const fetchEmSuggestions = async () => {
-        if (emMedicineQuery.length >= 2) {
-            try {
-                const res = await searchSuggestions(emMedicineQuery);
-                setEmSuggestions(res.data);
-                setShowEmSuggestions(true);
-            } catch (error) { console.error("Error fetching emergency suggestions"); }
-        } else {
-            setEmSuggestions([]);
-            setShowEmSuggestions(false);
+      if (emMedicineQuery.length >= 2) {
+        try {
+          const res = await searchSuggestions(emMedicineQuery);
+          setEmSuggestions(res.data);
+          setShowEmSuggestions(true);
+        } catch (error) { 
+          console.error("Error fetching emergency suggestions"); 
         }
+      } else {
+        setEmSuggestions([]);
+        setShowEmSuggestions(false);
+      }
     };
     const timer = setTimeout(fetchEmSuggestions, 300);
     return () => clearTimeout(timer);
   }, [emMedicineQuery]);
 
   const addMedicineToEmergencyPrescription = (medicineName: string) => {
-      const currentPrescription = emergencyForm.prescription;
-      const newPrescription = currentPrescription 
-          ? `${currentPrescription}\n${medicineName} - ` 
-          : `${medicineName} - `;
-      
-      setEmergencyForm(prev => ({ ...prev, prescription: newPrescription }));
-      setEmMedicineQuery("");
-      setShowEmSuggestions(false);
-      setTimeout(() => emergencyPrescriptionRef.current?.focus(), 50);
+    const currentPrescription = emergencyForm.prescription;
+    const newPrescription = currentPrescription 
+      ? `${currentPrescription}\n${medicineName} - ` 
+      : `${medicineName} - `;
+    
+    setEmergencyForm(prev => ({ ...prev, prescription: newPrescription }));
+    setEmMedicineQuery("");
+    setShowEmSuggestions(false);
+    setTimeout(() => emergencyPrescriptionRef.current?.focus(), 50);
   };
 
   const handleEmSuggestionKeyDown = (e: React.KeyboardEvent) => {
-      if (e.key === "ArrowDown") {
-          e.preventDefault();
-          setActiveEmSuggestionIndex(prev => (prev < emSuggestions.length - 1 ? prev + 1 : prev));
-      } else if (e.key === "ArrowUp") {
-          e.preventDefault();
-          setActiveEmSuggestionIndex(prev => (prev > 0 ? prev - 1 : 0));
-      } else if (e.key === "Enter" && showEmSuggestions && emSuggestions.length > 0) {
-          e.preventDefault();
-          addMedicineToEmergencyPrescription(emSuggestions[activeEmSuggestionIndex].name);
-      }
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      setActiveEmSuggestionIndex(prev => (prev < emSuggestions.length - 1 ? prev + 1 : prev));
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault();
+      setActiveEmSuggestionIndex(prev => (prev > 0 ? prev - 1 : 0));
+    } else if (e.key === "Enter" && showEmSuggestions && emSuggestions.length > 0) {
+      e.preventDefault();
+      addMedicineToEmergencyPrescription(emSuggestions[activeEmSuggestionIndex].name);
+    }
   };
 
   const handleRequestPatient = async () => {
     if (currentPatient) {
-        setIsModalOpen(true);
-        return;
+      setIsModalOpen(true);
+      return;
     }
 
     setPatientLoading(true);
@@ -495,7 +486,9 @@ export default function DoctorDashboard() {
     
     try {
       const patient = await requestNextPatient();
-      setCurrentPatient(patient);
+      // Trigger immediate Redux update after DB change
+      dispatch(fetchQueue());
+
       setDiagnosis("");
       setPrescription("");
       setHistoryList([]);
@@ -521,9 +514,10 @@ export default function DoctorDashboard() {
       await submitTreatment(currentPatient._id, { diagnosis, prescription });
       notify.dismiss(loadingId);
       notify.success("Treatment submitted successfully!");
-      setCurrentPatient(null);
       setIsModalOpen(false);
-      fetchStatus();
+      
+      // Refresh Redux state immediately
+      dispatch(fetchQueue());
     } catch (error) {
       notify.dismiss(loadingId);
       notify.error("Failed to save treatment. Please try again.");
@@ -547,29 +541,31 @@ export default function DoctorDashboard() {
     }
   };
 
-  //EMERGENCY PATIENT HANDLER
+  // EMERGENCY PATIENT HANDLER
   const handleEmergencySubmit = async (e: React.FormEvent) => {
-      e.preventDefault();
-      setEmergencyLoading(true);
-      const loadingId = notify.loading("Registering emergency patient...");
+    e.preventDefault();
+    setEmergencyLoading(true);
+    const loadingId = notify.loading("Registering emergency patient...");
 
-      try {
-          await createEmergencyVisit(emergencyForm);
-          notify.dismiss(loadingId);
-          notify.success("Emergency patient registered & treated!");
-          // Reset form
-          setEmergencyForm({ patientName: "", age: "", phone: "", diagnosis: "", prescription: "" });
-          setShowEmergencyModal(false);
-          fetchStatus(); // Refresh totals and completed list
-      } catch (error: any) {
-          notify.dismiss(loadingId);
-          notify.error(error.response?.data?.message || "Failed to register emergency patient");
-      } finally {
-          setEmergencyLoading(false);
-      }
+    try {
+      await createEmergencyVisit(emergencyForm);
+      notify.dismiss(loadingId);
+      notify.success("Emergency patient registered & treated!");
+      // Reset form
+      setEmergencyForm({ patientName: "", age: "", phone: "", diagnosis: "", prescription: "" });
+      setShowEmergencyModal(false);
+      
+      // Sync with Redux
+      dispatch(fetchQueue()); 
+    } catch (error: any) {
+      notify.dismiss(loadingId);
+      notify.error(error.response?.data?.message || "Failed to register emergency patient");
+    } finally {
+      setEmergencyLoading(false);
+    }
   };
 
-  //STAFF HANDLERS
+  // STAFF HANDLERS
   const handleCreateStaff = async (e: React.FormEvent) => {
     e.preventDefault();
     const loadingId = notify.loading("Creating staff member...");
@@ -652,7 +648,7 @@ export default function DoctorDashboard() {
         }`}>
           <div className="flex items-center justify-between">
             <h3 className={`text-lg font-semibold ${theme === 'dark' ? 'text-white' : 'text-gray-900'}`}>Recent Patients</h3>
-            <button className={`text-sm font-medium ${theme === 'dark' ? 'text-blue-400 hover:text-blue-300' : 'text-blue-600 hover:text-blue-700'}`}>
+            <button onClick={handleViewAllPatients} className={`text-sm font-medium ${theme === 'dark' ? 'text-blue-400 hover:text-blue-300' : 'text-blue-600 hover:text-blue-700'}`}>
               View All →
             </button>
           </div>
@@ -796,9 +792,9 @@ export default function DoctorDashboard() {
                         <Zap className="w-4 h-4 mr-2" />
                         Emergency
                       </button>
-                        <Link to="/prescription-templates" className={`px-4 py-2 border rounded-lg font-medium flex items-center transition-colors ${theme === 'dark' ? 'border-gray-600 text-gray-300 hover:bg-gray-700' : 'border-gray-300 text-gray-700 hover:bg-gray-50'}`}>
-                            <Pill className="w-4 h-4 mr-2" /> Templates
-                        </Link>
+                      <Link to="/prescription-templates" className={`px-4 py-2 border rounded-lg font-medium flex items-center transition-colors ${theme === 'dark' ? 'border-gray-600 text-gray-300 hover:bg-gray-700' : 'border-gray-300 text-gray-700 hover:bg-gray-50'}`}>
+                        <Pill className="w-4 h-4 mr-2" /> Templates
+                      </Link>
                       <button 
                         onClick={handleViewAllPatients}
                         className={`px-4 py-2 border rounded-lg font-medium transition-colors flex items-center ${
@@ -1266,7 +1262,7 @@ export default function DoctorDashboard() {
       </div>
       
       {/* Patient Consultation Modal */}
-      <AnimatePresence>
+      <AnimatePresence mode="wait">
         {isModalOpen && currentPatient && (
           <motion.div 
             initial={{ opacity: 0 }}
@@ -1278,528 +1274,295 @@ export default function DoctorDashboard() {
               initial={{ scale: 0.95, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.95, opacity: 0 }}
-              className={`rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col transition-colors ${
-                theme === 'dark' ? 'bg-gray-900' : 'bg-white'
-              }`}
-            >
-              {/* Modal Header */}
-              <div className="bg-linear-to-r from-blue-600 to-blue-700 px-8 py-6 text-white">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center space-x-3">
-                    <div className="p-2 bg-white/20 rounded-lg">
-                      <Stethoscope className="w-6 h-6" />
-                    </div>
-                    <div>
-                      <h2 className="text-2xl font-bold">Patient Consultation</h2>
-                      <p className="text-blue-100">Complete diagnosis and prescription</p>
-                    </div>
-                  </div>
-                  <div className="flex items-center space-x-3">
-                    <button
-                      onClick={handleViewHistory}
-                      className="flex items-center px-4 py-2 bg-white/20 hover:bg-white/30 rounded-lg font-medium transition-colors"
-                    >
-                      <History className="w-4 h-4 mr-2" />
-                      View History
-                    </button>
-                    <button
-                      onClick={() => setIsModalOpen(false)}
-                      className="p-2 hover:bg-white/20 rounded-lg"
-                    >
-                      <X className="w-6 h-6" />
-                    </button>
-                  </div>
-                </div>
-              </div>
-
-              <div className="px-8 pt-6">
-                <div className={`rounded-xl p-6 mb-6 border ${
-                  theme === 'dark' ? 'bg-gray-800 border-gray-700' : 'bg-gray-50 border-gray-200'
-                }`}>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                    <div>
-                      <p className={`text-sm font-medium mb-1 ${theme === 'dark' ? 'text-gray-400' : 'text-gray-600'}`}>Patient Name</p>
-                      <p className={`text-lg font-semibold ${theme === 'dark' ? 'text-white' : 'text-gray-900'}`}>{currentPatient.patientName}</p>
-                    </div>
-                    <div>
-                      <p className={`text-sm font-medium mb-1 ${theme === 'dark' ? 'text-gray-400' : 'text-gray-600'}`}>Age & Contact</p>
-                      <p className={`text-lg font-semibold ${theme === 'dark' ? 'text-white' : 'text-gray-900'}`}>
-                        {currentPatient.age} years • {currentPatient.phone}
-                      </p>
-                    </div>
-                    <div>
-                      <p className={`text-sm font-medium mb-1 ${theme === 'dark' ? 'text-gray-400' : 'text-gray-600'}`}>Token Number</p>
-                      <div className={`inline-flex items-center px-4 py-2 rounded-lg font-bold ${
-                        theme === 'dark' ? 'bg-blue-900/50 text-blue-300' : 'bg-blue-100 text-blue-700'
-                      }`}>
-                        #{currentPatient.appointmentNumber}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <div className="px-8 pb-8 overflow-y-auto flex-1">
-                <form id="treatment-form" onSubmit={handleSubmitTreatment} className="space-y-8">
-                  <div>
-                    <label className={`block text-sm font-semibold mb-3 ${theme === 'dark' ? 'text-white' : 'text-gray-900'}`}>
-                      <div className="flex items-center">
-                        <FileText className="w-5 h-5 text-blue-600 mr-2" />
-                        Diagnosis
-                      </div>
-                    </label>
-                    <textarea
-                      required
-                      value={diagnosis}
-                      onChange={(e) => setDiagnosis(e.target.value)}
-                      className={`w-full px-4 py-3 border rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none min-h-[120px] resize-none transition-colors ${
-                        theme === 'dark' 
-                          ? 'bg-gray-800 border-gray-700 text-white placeholder-gray-500' 
-                          : 'bg-white border-gray-300 text-gray-900 placeholder-gray-500'
-                      }`}
-                      placeholder="Enter medical diagnosis..."
-                    />
-                  </div>
-
-                  <div>
-                    <label className={`block text-sm font-semibold mb-3 ${theme === 'dark' ? 'text-white' : 'text-gray-900'}`}>
-                      <div className="flex items-center">
-                        <Pill className="w-5 h-5 text-green-600 mr-2" />
-                        Prescription
-                      </div>
-                    </label>
-                    <textarea
-                      ref={prescriptionRef}
-                      required
-                      value={prescription}
-                      onChange={(e) => setPrescription(e.target.value)}
-                      className={`w-full px-4 py-3 border rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none min-h-40 font-mono text-sm transition-colors ${
-                        theme === 'dark' 
-                          ? 'bg-gray-800 border-gray-700 text-white placeholder-gray-500' 
-                          : 'bg-gray-50 border-gray-300 text-gray-900 placeholder-gray-500'
-                      }`}
-                      placeholder="Enter prescription details..."
-                    />
-                  </div>
-                </form>
-              </div>
-
-              <div className={`border-t px-8 py-6 ${
-                theme === 'dark' ? 'border-gray-800 bg-gray-900' : 'border-gray-200 bg-gray-50'
-              }`}>
-                <div className="flex justify-end space-x-4">
-                  <button
-                    onClick={() => {
-                        setIsModalOpen(false); 
-                    }}
-                    className={`px-6 py-3 border font-medium rounded-xl transition-colors ${
-                      theme === 'dark' 
-                        ? 'border-gray-700 text-gray-300 hover:bg-gray-800' 
-                        : 'border-gray-300 text-gray-700 hover:bg-gray-100'
-                    }`}
-                  >
-                    Close (Resume Later)
-                  </button>
-                  <button
-                    type="submit"
-                    form="treatment-form"
-                    className="px-6 py-3 bg-emerald-600 text-white font-medium rounded-xl hover:bg-emerald-700 transition-colors flex items-center"
-                  >
-                    <CheckCircle className="w-5 h-5 mr-2" />
-                    Complete Consultation
-                  </button>
-                </div>
-              </div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      <AnimatePresence>
-        {isModalOpen && currentPatient && (
-          <motion.div 
-            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"
-          >
-            <motion.div 
-              initial={{ scale: 0.95 }} animate={{ scale: 1 }} exit={{ scale: 0.95 }}
               className={`rounded-2xl shadow-2xl w-full max-w-4xl max-h-[95vh] overflow-hidden flex flex-col ${theme === 'dark' ? 'bg-gray-900' : 'bg-white'}`}
             >
               {/* Header */}
               <div className="bg-blue-600 px-8 py-4 text-white flex justify-between items-center">
-                  <div className="flex items-center gap-3">
-                      <Stethoscope className="w-6 h-6"/>
-                      <div>
-                          <h2 className="text-xl font-bold">Consultation</h2>
-                          <p className="text-sm opacity-90">{currentPatient.patientName} (#{currentPatient.appointmentNumber})</p>
-                      </div>
+                <div className="flex items-center gap-3">
+                  <Stethoscope className="w-6 h-6"/>
+                  <div>
+                    <h2 className="text-xl font-bold">Consultation</h2>
+                    <p className="text-sm opacity-90">{currentPatient.patientName} (#{currentPatient.appointmentNumber})</p>
                   </div>
-                  <button onClick={() => setIsModalOpen(false)}><X className="w-6 h-6"/></button>
+                </div>
+                <div className="flex items-center gap-3">
+                  <button
+                    onClick={handleViewHistory}
+                    className="flex items-center px-4 py-2 bg-white/20 hover:bg-white/30 rounded-lg font-medium transition-colors"
+                  >
+                    <History className="w-4 h-4 mr-2" />
+                    History
+                  </button>
+                  <button onClick={() => setIsModalOpen(false)} className="p-2 hover:bg-white/20 rounded-lg"
+                >
+                  <X className="w-6 h-6" />
+                </button>
               </div>
+            </div>
 
-              <div className="px-8 py-6 overflow-y-auto flex-1">
-                <form id="treatment-form" onSubmit={handleSubmitTreatment} className="space-y-6">
-                  
-                  {/* Diagnosis */}
+            <div className="px-8 pt-6">
+              <div className={`rounded-xl p-6 mb-6 border ${
+                theme === 'dark' ? 'bg-gray-800 border-gray-700' : 'bg-gray-50 border-gray-200'
+              }`}>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                   <div>
-                    <label className={`block text-sm font-semibold mb-2 ${theme === 'dark' ? 'text-white' : 'text-gray-900'}`}>Diagnosis</label>
-                    <textarea 
-                        required 
-                        value={diagnosis} 
-                        onChange={(e) => setDiagnosis(e.target.value)} 
-                        className={`w-full px-4 py-3 border rounded-xl outline-none focus:ring-2 focus:ring-blue-500 h-24 resize-none ${theme === 'dark' ? 'bg-gray-800 border-gray-700 text-white' : 'bg-white border-gray-300'}`}
-                        placeholder="Enter diagnosis..."
+                    <p className={`text-sm font-medium mb-1 ${theme === 'dark' ? 'text-gray-400' : 'text-gray-600'}`}>Patient Name</p>
+                    <p className={`text-lg font-semibold ${theme === 'dark' ? 'text-white' : 'text-gray-900'}`}>{currentPatient.patientName}</p>
+                  </div>
+                  <div>
+                    <p className={`text-sm font-medium mb-1 ${theme === 'dark' ? 'text-gray-400' : 'text-gray-600'}`}>Age & Contact</p>
+                    <p className={`text-lg font-semibold ${theme === 'dark' ? 'text-white' : 'text-gray-900'}`}>
+                      {currentPatient.age} years • {currentPatient.phone}
+                    </p>
+                  </div>
+                  <div>
+                    <p className={`text-sm font-medium mb-1 ${theme === 'dark' ? 'text-gray-400' : 'text-gray-600'}`}>Token Number</p>
+                    <div className={`inline-flex items-center px-4 py-2 rounded-lg font-bold ${
+                      theme === 'dark' ? 'bg-blue-900/50 text-blue-300' : 'bg-blue-100 text-blue-700'
+                    }`}>
+                      #{currentPatient.appointmentNumber}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="px-8 py-6 overflow-y-auto flex-1">
+              <form id="treatment-form" onSubmit={handleSubmitTreatment} className="space-y-6">
+                
+                {/* Diagnosis Section */}
+                <div>
+                  <label className={`block text-sm font-semibold mb-2 ${theme === 'dark' ? 'text-white' : 'text-gray-900'}`}>Diagnosis</label>
+                  <textarea 
+                    required 
+                    value={diagnosis} 
+                    onChange={(e) => setDiagnosis(e.target.value)} 
+                    className={`w-full px-4 py-3 border rounded-xl outline-none focus:ring-2 focus:ring-blue-500 h-24 resize-none ${theme === 'dark' ? 'bg-gray-800 border-gray-700 text-white' : 'bg-white border-gray-300'}`}
+                    placeholder="Enter diagnosis..."
+                  />
+                </div>
+
+                {/* Prescription Section with Redux-ready AutoComplete logic */}
+                <div>
+                  <label className={`block text-sm font-semibold mb-2 ${theme === 'dark' ? 'text-white' : 'text-gray-900'}`}>Prescription</label>
+                  
+                  <div className="relative mb-2">
+                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                      <Search className={`h-4 w-4 ${theme === 'dark' ? 'text-gray-400' : 'text-gray-500'}`} />
+                    </div>
+                    <input 
+                      type="text"
+                      value={medicineQuery}
+                      onChange={(e) => setMedicineQuery(e.target.value)}
+                      onKeyDown={handleSuggestionKeyDown}
+                      placeholder="Type medicine name to auto-search..."
+                      className={`w-full pl-10 pr-4 py-2 border rounded-lg outline-none focus:ring-2 focus:ring-blue-500 text-sm ${theme === 'dark' ? 'bg-gray-800 border-gray-600 text-white' : 'bg-gray-50 border-gray-300 text-gray-900'}`}
                     />
+                    
+                    {/* Suggestions Dropdown */}
+                    {showSuggestions && suggestions.length > 0 && (
+                      <ul className={`absolute z-50 w-full mt-1 border rounded-lg shadow-lg max-h-48 overflow-auto ${theme === 'dark' ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}>
+                        {suggestions.map((suggestion, index) => (
+                          <li 
+                            key={suggestion._id}
+                            onClick={() => addMedicineToPrescription(suggestion.name)}
+                            className={`px-4 py-2 cursor-pointer text-sm flex items-center justify-between ${
+                              index === activeSuggestionIndex 
+                                ? 'bg-blue-600 text-white' 
+                                : theme === 'dark' ? 'text-gray-200 hover:bg-gray-700' : 'text-gray-800 hover:bg-gray-100'
+                            }`}
+                          >
+                            {suggestion.name}
+                            {index === activeSuggestionIndex && <span className="text-xs opacity-70">Press Enter</span>}
+                          </li>
+                        ))}
+                      </ul>
+                    )}
                   </div>
 
-                  {/* Prescription with AutoComplete */}
+                  <textarea 
+                    ref={prescriptionRef}
+                    required 
+                    value={prescription} 
+                    onChange={(e) => setPrescription(e.target.value)} 
+                    className={`w-full px-4 py-3 border rounded-xl outline-none focus:ring-2 focus:ring-blue-500 h-40 font-mono text-sm ${theme === 'dark' ? 'bg-gray-800 border-gray-700 text-white' : 'bg-white border-gray-300'}`}
+                    placeholder="Prescription items will appear here..."
+                  />
+                  <p className="text-xs text-gray-500 mt-1">Tip: Use the search bar above to quickly add medicines from your templates.</p>
+                </div>
+              </form>
+            </div>
+
+            <div className={`border-t px-8 py-4 ${theme === 'dark' ? 'border-gray-800 bg-gray-900' : 'border-gray-200 bg-gray-50'}`}>
+              <div className="flex justify-end gap-3">
+                <button onClick={() => setIsModalOpen(false)} className="px-6 py-2.5 border rounded-lg font-medium hover:bg-gray-100 dark:hover:bg-gray-800 transition">Close</button>
+                <button type="submit" form="treatment-form" className="px-6 py-2.5 bg-emerald-600 text-white rounded-lg font-medium hover:bg-emerald-700 transition flex items-center">
+                  <CheckCircle className="w-4 h-4 mr-2"/> Complete Consultation
+                </button>
+              </div>
+            </div>
+          </motion.div>
+        </motion.div>
+      )}
+    </AnimatePresence>
+
+    {/* --- EMERGENCY MODAL --- */}
+    <AnimatePresence>
+      {showEmergencyModal && (
+        <motion.div 
+          initial={{ opacity: 0 }} 
+          animate={{ opacity: 1 }} 
+          exit={{ opacity: 0 }} 
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
+        >
+          <motion.div 
+            initial={{ scale: 0.95, opacity: 0 }} 
+            animate={{ scale: 1, opacity: 1 }} 
+            exit={{ scale: 0.95, opacity: 0 }} 
+            className={`rounded-2xl shadow-2xl w-full max-w-4xl max-h-[95vh] overflow-hidden flex flex-col border-2 border-red-500 transition-colors ${
+              theme === 'dark' ? 'bg-gray-900' : 'bg-white'
+            }`}
+          >
+            <div className="bg-red-600 px-8 py-6 text-white flex justify-between items-center">
+              <div className="flex items-center space-x-3">
+                <div className="p-2 bg-white/20 rounded-lg animate-pulse">
+                  <Zap className="w-6 h-6" />
+                </div>
+                <div>
+                  <h2 className="text-2xl font-bold">Emergency Registration</h2>
+                  <p className="text-red-100 text-sm">Instant entry & treatment submission</p>
+                </div>
+              </div>
+              <button onClick={() => setShowEmergencyModal(false)} className="p-2 rounded-full hover:bg-red-700 transition">
+                <X className="w-6 h-6" />
+              </button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto p-8">
+              <form id="emergency-form" onSubmit={handleEmergencySubmit} className="space-y-8">
+                <div className={`p-5 rounded-xl border ${
+                  theme === 'dark' ? 'bg-red-900/10 border-red-900/30' : 'bg-red-50 border-red-100'
+                }`}>
+                  <h3 className={`text-sm font-bold uppercase tracking-wide mb-4 flex items-center ${
+                    theme === 'dark' ? 'text-red-400' : 'text-red-700'
+                  }`}>
+                    <Users className="w-4 h-4 mr-2" /> Patient Information
+                  </h3>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+                    <div>
+                      <label className="block text-sm font-medium mb-1">Name</label>
+                      <input required type="text" value={emergencyForm.patientName} onChange={e => setEmergencyForm({...emergencyForm, patientName: e.target.value})} className={`w-full px-4 py-2 border rounded-lg outline-none focus:ring-2 focus:ring-red-500 ${theme === 'dark' ? 'bg-gray-800 border-gray-700 text-white' : 'bg-white'}`} placeholder="Name" />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium mb-1">Age</label>
+                      <input required type="number" value={emergencyForm.age} onChange={e => setEmergencyForm({...emergencyForm, age: e.target.value})} className={`w-full px-4 py-2 border rounded-lg outline-none focus:ring-2 focus:ring-red-500 ${theme === 'dark' ? 'bg-gray-800 border-gray-700 text-white' : 'bg-white'}`} placeholder="Age" />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium mb-1">Phone</label>
+                      <input required type="text" value={emergencyForm.phone} onChange={e => setEmergencyForm({...emergencyForm, phone: e.target.value})} className={`w-full px-4 py-2 border rounded-lg outline-none focus:ring-2 focus:ring-red-500 ${theme === 'dark' ? 'bg-gray-800 border-gray-700 text-white' : 'bg-white'}`} placeholder="Phone" />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="space-y-5">
                   <div>
-                    <label className={`block text-sm font-semibold mb-2 ${theme === 'dark' ? 'text-white' : 'text-gray-900'}`}>Prescription</label>
-                    
-                    {/* Search / Smart Input */}
+                    <label className="block text-sm font-semibold mb-2">Immediate Diagnosis</label>
+                    <textarea required value={emergencyForm.diagnosis} onChange={e => setEmergencyForm({...emergencyForm, diagnosis: e.target.value})} className={`w-full px-4 py-3 border rounded-xl outline-none focus:ring-2 focus:ring-red-500 h-24 resize-none ${theme === 'dark' ? 'bg-gray-800 border-gray-700 text-white' : 'bg-white'}`} placeholder="Enter diagnosis..." />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-semibold mb-2">Prescription / Treatment</label>
                     <div className="relative mb-2">
-                        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                            <Search className={`h-4 w-4 ${theme === 'dark' ? 'text-gray-400' : 'text-gray-500'}`} />
-                        </div>
                         <input 
                             type="text"
-                            value={medicineQuery}
-                            onChange={(e) => setMedicineQuery(e.target.value)}
-                            onKeyDown={handleSuggestionKeyDown}
-                            placeholder="Type medicine name to auto-search (e.g. Pan...)"
-                            className={`w-full pl-10 pr-4 py-2 border rounded-lg outline-none focus:ring-2 focus:ring-blue-500 text-sm ${theme === 'dark' ? 'bg-gray-800 border-gray-600 text-white' : 'bg-gray-50 border-gray-300 text-gray-900'}`}
+                            value={emMedicineQuery}
+                            onChange={(e) => setEmMedicineQuery(e.target.value)}
+                            onKeyDown={handleEmSuggestionKeyDown}
+                            placeholder="Type medicine name to auto-search..."
+                            className={`w-full px-4 py-2 border rounded-lg outline-none focus:ring-2 focus:ring-red-500 text-sm ${theme === 'dark' ? 'bg-gray-800 border-gray-600 text-white' : 'bg-white'}`}
                         />
-                        
-                        {/* Suggestions Dropdown */}
-                        {showSuggestions && suggestions.length > 0 && (
-                            <ul className={`absolute z-10 w-full mt-1 border rounded-lg shadow-lg max-h-48 overflow-auto ${theme === 'dark' ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}>
-                                {suggestions.map((suggestion, index) => (
-                                    <li 
-                                        key={suggestion._id}
-                                        onClick={() => addMedicineToPrescription(suggestion.name)}
-                                        className={`px-4 py-2 cursor-pointer text-sm flex items-center justify-between ${
-                                            index === activeSuggestionIndex 
-                                                ? 'bg-blue-600 text-white' 
-                                                : theme === 'dark' ? 'text-gray-200 hover:bg-gray-700' : 'text-gray-800 hover:bg-gray-100'
-                                        }`}
-                                    >
-                                        {suggestion.name}
-                                        {index === activeSuggestionIndex && <span className="text-xs opacity-70">Press Enter</span>}
-                                    </li>
+                        {showEmSuggestions && emSuggestions.length > 0 && (
+                            <ul className="absolute z-50 w-full mt-1 border rounded-lg shadow-lg max-h-48 overflow-auto bg-white dark:bg-gray-800">
+                                {emSuggestions.map((s, i) => (
+                                    <li key={s._id} onClick={() => addMedicineToEmergencyPrescription(s.name)} className={`px-4 py-2 cursor-pointer text-sm ${i === activeEmSuggestionIndex ? 'bg-red-600 text-white' : 'hover:bg-red-50 dark:hover:bg-gray-700'}`}>{s.name}</li>
                                 ))}
                             </ul>
                         )}
                     </div>
-
-                    <textarea 
-                        required 
-                        value={prescription} 
-                        onChange={(e) => setPrescription(e.target.value)} 
-                        className={`w-full px-4 py-3 border rounded-xl outline-none focus:ring-2 focus:ring-blue-500 h-40 font-mono text-sm ${theme === 'dark' ? 'bg-gray-800 border-gray-700 text-white' : 'bg-white border-gray-300'}`}
-                        placeholder="Prescription items will appear here..."
-                    />
-                    <p className="text-xs text-gray-500 mt-1">Tip: Use the search bar above to quickly add medicines from your templates.</p>
-                  </div>
-
-                </form>
-              </div>
-
-              <div className={`border-t px-8 py-4 ${theme === 'dark' ? 'border-gray-800 bg-gray-900' : 'border-gray-200 bg-gray-50'}`}>
-                <div className="flex justify-end gap-3">
-                    <button onClick={() => setIsModalOpen(false)} className="px-6 py-2.5 border rounded-lg font-medium hover:bg-gray-100 dark:hover:bg-gray-800 transition">Close</button>
-                    <button type="submit" form="treatment-form" className="px-6 py-2.5 bg-emerald-600 text-white rounded-lg font-medium hover:bg-emerald-700 transition flex items-center">
-                        <CheckCircle className="w-4 h-4 mr-2"/> Complete
-                    </button>
-                </div>
-              </div>
-
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      <AnimatePresence>
-        {showEmergencyModal && (
-          <motion.div 
-            initial={{ opacity: 0 }} 
-            animate={{ opacity: 1 }} 
-            exit={{ opacity: 0 }} 
-            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
-          >
-            <motion.div 
-              initial={{ scale: 0.95, opacity: 0 }} 
-              animate={{ scale: 1, opacity: 1 }} 
-              exit={{ scale: 0.95, opacity: 0 }} 
-              className={`rounded-2xl shadow-2xl w-full max-w-4xl max-h-[95vh] overflow-hidden flex flex-col border-2 border-red-500 transition-colors ${
-                theme === 'dark' ? 'bg-gray-900' : 'bg-white'
-              }`}
-            >
-              
-              {/* Header */}
-              <div className="bg-red-600 px-8 py-6 text-white flex justify-between items-center">
-                <div className="flex items-center space-x-3">
-                  <div className="p-2 bg-white/20 rounded-lg animate-pulse">
-                    <Zap className="w-6 h-6" />
-                  </div>
-                  <div>
-                    <h2 className="text-2xl font-bold">Emergency Registration</h2>
-                    <p className="text-red-100 text-sm">Instant entry & treatment submission</p>
+                    <textarea ref={emergencyPrescriptionRef} required value={emergencyForm.prescription} onChange={e => setEmergencyForm({...emergencyForm, prescription: e.target.value})} className={`w-full px-4 py-3 border rounded-xl outline-none focus:ring-2 focus:ring-red-500 h-32 font-mono text-sm ${theme === 'dark' ? 'bg-gray-800 border-gray-700 text-white' : 'bg-white'}`} placeholder="Enter prescription..." />
                   </div>
                 </div>
-                <button onClick={() => setShowEmergencyModal(false)} className="p-2 rounded-full hover:bg-red-700 transition">
-                  <X className="w-6 h-6" />
+              </form>
+            </div>
+
+            <div className={`border-t px-8 py-6 ${theme === 'dark' ? 'border-gray-800 bg-gray-900' : 'border-gray-200 bg-gray-50'}`}>
+              <div className="flex justify-end space-x-4">
+                <button onClick={() => setShowEmergencyModal(false)} className="px-6 py-3 border font-medium rounded-xl">Cancel</button>
+                <button type="submit" form="emergency-form" disabled={emergencyLoading} className="px-6 py-3 bg-red-600 text-white font-medium rounded-xl hover:bg-red-700 transition-colors flex items-center shadow-lg shadow-red-500/30">
+                  {emergencyLoading ? <Loader2 className="animate-spin w-5 h-5 mr-2" /> : <Save className="w-5 h-5 mr-2" />}
+                  Save & Complete
                 </button>
-              </div>
-
-              <div className="flex-1 overflow-y-auto p-8">
-                <form id="emergency-form" onSubmit={handleEmergencySubmit} className="space-y-8">
-                  
-                  {/* Patient Details Section */}
-                  <div className={`p-5 rounded-xl border ${
-                    theme === 'dark' ? 'bg-red-900/10 border-red-900/30' : 'bg-red-50 border-red-100'
-                  }`}>
-                    <h3 className={`text-sm font-bold uppercase tracking-wide mb-4 flex items-center ${
-                      theme === 'dark' ? 'text-red-400' : 'text-red-700'
-                    }`}>
-                      <Users className="w-4 h-4 mr-2" /> Patient Information
-                    </h3>
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-                      <div>
-                        <label className={`block text-sm font-medium mb-1 ${theme === 'dark' ? 'text-gray-300' : 'text-gray-700'}`}>Name</label>
-                        <input required type="text" value={emergencyForm.patientName} onChange={e => setEmergencyForm({...emergencyForm, patientName: e.target.value})} className={`w-full px-4 py-2 border rounded-lg outline-none focus:ring-2 focus:ring-red-500 ${
-                          theme === 'dark' 
-                            ? 'bg-gray-800 border-gray-700 text-white placeholder-gray-500' 
-                            : 'bg-white border-gray-300 text-gray-900'
-                        }`} placeholder="Patient Name" />
-                      </div>
-                      <div>
-                        <label className={`block text-sm font-medium mb-1 ${theme === 'dark' ? 'text-gray-300' : 'text-gray-700'}`}>Age</label>
-                        <input required type="number" value={emergencyForm.age} onChange={e => setEmergencyForm({...emergencyForm, age: e.target.value})} className={`w-full px-4 py-2 border rounded-lg outline-none focus:ring-2 focus:ring-red-500 ${
-                          theme === 'dark' 
-                            ? 'bg-gray-800 border-gray-700 text-white placeholder-gray-500' 
-                            : 'bg-white border-gray-300 text-gray-900'
-                        }`} placeholder="Age" />
-                      </div>
-                      <div>
-                        <label className={`block text-sm font-medium mb-1 ${theme === 'dark' ? 'text-gray-300' : 'text-gray-700'}`}>Phone</label>
-                        <input required type="text" value={emergencyForm.phone} onChange={e => setEmergencyForm({...emergencyForm, phone: e.target.value})} className={`w-full px-4 py-2 border rounded-lg outline-none focus:ring-2 focus:ring-red-500 ${
-                          theme === 'dark' 
-                            ? 'bg-gray-800 border-gray-700 text-white placeholder-gray-500' 
-                            : 'bg-white border-gray-300 text-gray-900'
-                        }`} placeholder="Phone Number" />
-                      </div>
-                    </div>
-                  </div>
-
-                  <div>
-                    <h3 className={`text-sm font-bold uppercase tracking-wide mb-4 flex items-center ${
-                      theme === 'dark' ? 'text-gray-400' : 'text-gray-600'
-                    }`}>
-                      <Activity className="w-4 h-4 mr-2" /> Medical Details
-                    </h3>
-                    <div className="space-y-5">
-                      {/* Diagnosis */}
-                      <div>
-                        <label className={`block text-sm font-semibold mb-2 ${theme === 'dark' ? 'text-white' : 'text-gray-900'}`}>Immediate Diagnosis</label>
-                        <textarea required value={emergencyForm.diagnosis} onChange={e => setEmergencyForm({...emergencyForm, diagnosis: e.target.value})} className={`w-full px-4 py-3 border rounded-xl outline-none focus:ring-2 focus:ring-red-500 h-24 resize-none ${
-                          theme === 'dark' 
-                            ? 'bg-gray-800 border-gray-700 text-white placeholder-gray-500' 
-                            : 'bg-white border-gray-300 text-gray-900'
-                        }`} placeholder="Enter diagnosis..." />
-                      </div>
-
-                      {/* Prescription Area with Auto-Complete */}
-                      <div>
-                        <label className={`block text-sm font-semibold mb-2 ${theme === 'dark' ? 'text-white' : 'text-gray-900'}`}>Prescription / Treatment</label>
-                        
-                        {/* Auto-Complete Search Input */}
-                        <div className="relative mb-2">
-                            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                                <Search className={`h-4 w-4 ${theme === 'dark' ? 'text-gray-400' : 'text-gray-500'}`} />
-                            </div>
-                            <input 
-                                type="text"
-                                value={emMedicineQuery}
-                                onChange={(e) => setEmMedicineQuery(e.target.value)}
-                                onKeyDown={handleEmSuggestionKeyDown}
-                                placeholder="Type medicine name to auto-search..."
-                                className={`w-full pl-10 pr-4 py-2 border rounded-lg outline-none focus:ring-2 focus:ring-red-500 text-sm ${
-                                  theme === 'dark' 
-                                    ? 'bg-gray-800 border-gray-700 text-white placeholder-gray-500' 
-                                    : 'bg-white border-gray-300 text-gray-900'
-                                }`}
-                            />
-                            {/* Suggestions Dropdown */}
-                            {showEmSuggestions && emSuggestions.length > 0 && (
-                                <ul className={`absolute z-10 w-full mt-1 border rounded-lg shadow-lg max-h-48 overflow-auto ${theme === 'dark' ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}>
-                                    {emSuggestions.map((suggestion, index) => (
-                                        <li 
-                                            key={suggestion._id}
-                                            onClick={() => addMedicineToEmergencyPrescription(suggestion.name)}
-                                            className={`px-4 py-2 cursor-pointer text-sm flex items-center justify-between ${
-                                                index === activeEmSuggestionIndex 
-                                                    ? 'bg-red-600 text-white' 
-                                                    : theme === 'dark' ? 'text-gray-200 hover:bg-gray-700' : 'text-gray-800 hover:bg-gray-100'
-                                            }`}
-                                        >
-                                            {suggestion.name}
-                                        </li>
-                                    ))}
-                                </ul>
-                            )}
-                        </div>
-
-                        {/* Text Area */}
-                        <textarea 
-                            ref={emergencyPrescriptionRef}
-                            required 
-                            value={emergencyForm.prescription} 
-                            onChange={e => setEmergencyForm({...emergencyForm, prescription: e.target.value})} 
-                            className={`w-full px-4 py-3 border rounded-xl outline-none focus:ring-2 focus:ring-red-500 h-32 font-mono text-sm transition-colors ${
-                              theme === 'dark' 
-                                ? 'bg-gray-800 border-gray-700 text-white placeholder-gray-500' 
-                                : 'bg-white border-gray-300 text-gray-900'
-                            }`} 
-                            placeholder="Enter prescription..." 
-                        />
-                      </div>
-                    </div>
-                  </div>
-
-                </form>
-              </div>
-
-              {/* Footer  */}
-              <div className={`border-t px-8 py-6 ${
-                theme === 'dark' ? 'border-gray-800 bg-gray-900' : 'border-gray-200 bg-gray-50'
-              }`}>
-                <div className="flex justify-end space-x-4">
-                  <button onClick={() => setShowEmergencyModal(false)} className={`px-6 py-3 border font-medium rounded-xl transition-colors ${
-                    theme === 'dark' 
-                      ? 'border-gray-700 text-gray-300 hover:bg-gray-800' 
-                      : 'border-gray-300 text-gray-700 hover:bg-gray-100'
-                  }`}>Cancel</button>
-                  <button type="submit" form="emergency-form" disabled={emergencyLoading} className="px-6 py-3 bg-red-600 text-white font-medium rounded-xl hover:bg-red-700 transition-colors flex items-center shadow-lg shadow-red-500/30">
-                    {emergencyLoading ? <Loader2 className="animate-spin w-5 h-5 mr-2" /> : <Save className="w-5 h-5 mr-2" />}
-                    Save & Complete
-                  </button>
-                </div>
-              </div>
-
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      <AnimatePresence>
-        {showHistoryModal && (
-          <motion.div 
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"
-          >
-            <div className={`rounded-2xl shadow-2xl w-full max-w-3xl max-h-[90vh] overflow-hidden transition-colors ${
-              theme === 'dark' ? 'bg-gray-900' : 'bg-white'
-            }`}>
-              <div className={`border-b px-8 py-6 ${
-                theme === 'dark' ? 'border-gray-800' : 'border-gray-200'
-              }`}>
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center space-x-3">
-                    <div className={`p-2 rounded-lg ${
-                      theme === 'dark' ? 'bg-blue-900/30' : 'bg-blue-50'
-                    }`}>
-                      <History className={`w-6 h-6 ${theme === 'dark' ? 'text-blue-400' : 'text-blue-600'}`} />
-                    </div>
-                    <div>
-                      <h2 className={`text-xl font-bold ${theme === 'dark' ? 'text-white' : 'text-gray-900'}`}>Medical History</h2>
-                      <p className={`${theme === 'dark' ? 'text-gray-400' : 'text-gray-600'}`}>Past consultations for {currentPatient?.patientName}</p>
-                    </div>
-                  </div>
-                  <button
-                    onClick={() => setShowHistoryModal(false)}
-                    className={`p-2 rounded-lg transition-colors ${
-                      theme === 'dark' 
-                        ? 'text-gray-400 hover:text-gray-200 hover:bg-gray-800' 
-                        : 'text-gray-400 hover:text-gray-600 hover:bg-gray-100'
-                    }`}
-                  >
-                    <X className="w-6 h-6" />
-                  </button>
-                </div>
-              </div>
-
-              <div className="px-8 py-6 overflow-y-auto max-h-[60vh]">
-                {historyList.length === 0 ? (
-                  <div className="text-center py-12">
-                    <History className={`w-16 h-16 mx-auto mb-4 ${
-                      theme === 'dark' ? 'text-gray-700' : 'text-gray-300'
-                    }`} />
-                    <h3 className={`text-lg font-semibold mb-2 ${theme === 'dark' ? 'text-white' : 'text-gray-900'}`}>No History Found</h3>
-                    <p className={`${theme === 'dark' ? 'text-gray-400' : 'text-gray-600'}`}>No past consultations available for this patient</p>
-                  </div>
-                ) : (
-                  <div className="space-y-4">
-                    {historyList.map((record) => (
-                      <div key={record._id} className={`border rounded-xl p-6 transition-colors ${
-                        theme === 'dark' 
-                          ? 'border-gray-800 hover:border-blue-700 bg-gray-800/50' 
-                          : 'border-gray-200 hover:border-blue-300'
-                      }`}>
-                        <div className="flex items-start justify-between mb-4">
-                          <div>
-                            <h4 className={`font-semibold mb-1 ${theme === 'dark' ? 'text-white' : 'text-gray-900'}`}>Consultation</h4>
-                            <p className={`text-sm ${theme === 'dark' ? 'text-gray-400' : 'text-gray-500'}`}>
-                              {record.date ? new Date(record.date).toLocaleDateString('en-US', {
-                                weekday: 'long',
-                                year: 'numeric',
-                                month: 'long',
-                                day: 'numeric'
-                              }) : 'Date not available'}
-                            </p>
-                          </div>
-                          <span className={`px-3 py-1 text-sm font-medium rounded-full ${
-                            theme === 'dark' ? 'bg-blue-900/50 text-blue-300' : 'bg-blue-100 text-blue-700'
-                          }`}>
-                            Token #{record.appointmentNumber}
-                          </span>
-                        </div>
-                        
-                        <div className="space-y-4">
-                          <div>
-                            <p className={`text-sm font-medium mb-2 ${theme === 'dark' ? 'text-gray-300' : 'text-gray-700'}`}>Diagnosis</p>
-                            <p className={`p-4 rounded-lg ${
-                              theme === 'dark' ? 'bg-gray-800 text-gray-200' : 'bg-gray-50 text-gray-900'
-                            }`}>{record.diagnosis}</p>
-                          </div>
-                          <div>
-                            <p className={`text-sm font-medium mb-2 ${theme === 'dark' ? 'text-gray-300' : 'text-gray-700'}`}>Prescription</p>
-                            <div className={`p-4 rounded-lg border font-mono text-sm whitespace-pre-wrap ${
-                              theme === 'dark' 
-                                ? 'bg-gray-800 border-gray-700 text-gray-300' 
-                                : 'bg-white border-gray-200 text-gray-900'
-                            }`}>
-                              {record.prescription}
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
               </div>
             </div>
           </motion.div>
-        )}
-      </AnimatePresence>
+        </motion.div>
+      )}
+    </AnimatePresence>
 
-      <TodayPatientsModal 
-        isOpen={showAllPatientsModal}
-        onClose={() => setShowAllPatientsModal(false)}
-        patients={allPatientsList}
-        isLoading={loadingList}
-      />
-    </Layout>
+    {/* --- HISTORY MODAL --- */}
+    <AnimatePresence>
+      {showHistoryModal && (
+        <motion.div 
+          initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"
+        >
+          <div className={`rounded-2xl shadow-2xl w-full max-w-3xl max-h-[90vh] overflow-hidden transition-colors ${theme === 'dark' ? 'bg-gray-900' : 'bg-white'}`}>
+            <div className={`border-b px-8 py-6 ${theme === 'dark' ? 'border-gray-800' : 'border-gray-200'}`}>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-3">
+                  <div className={`p-2 rounded-lg ${theme === 'dark' ? 'bg-blue-900/30' : 'bg-blue-50'}`}>
+                    <History className={`w-6 h-6 ${theme === 'dark' ? 'text-blue-400' : 'text-blue-600'}`} />
+                  </div>
+                  <div>
+                    <h2 className="text-xl font-bold">Medical History</h2>
+                    <p className="text-sm text-gray-500">{currentPatient?.patientName}</p>
+                  </div>
+                </div>
+                <button onClick={() => setShowHistoryModal(false)} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg"><X className="w-6 h-6" /></button>
+              </div>
+            </div>
+
+            <div className="px-8 py-6 overflow-y-auto max-h-[60vh]">
+              {historyList.length === 0 ? (
+                <div className="text-center py-12 text-gray-400"><History className="w-16 h-16 mx-auto mb-4 opacity-20" /><p>No History Found</p></div>
+              ) : (
+                <div className="space-y-4">
+                  {historyList.map((record) => (
+                    <div key={record._id} className={`border rounded-xl p-6 transition-colors ${theme === 'dark' ? 'border-gray-800 bg-gray-800/50' : 'border-gray-200 bg-gray-50'}`}>
+                      <div className="flex items-start justify-between mb-4">
+                        <div>
+                          <h4 className="font-semibold">Consultation</h4>
+                          <p className="text-sm text-gray-500">{record.date ? new Date(record.date).toLocaleDateString() : 'N/A'}</p>
+                        </div>
+                        <span className="px-3 py-1 text-sm font-medium rounded-full bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300">Token #{record.appointmentNumber}</span>
+                      </div>
+                      <div className="space-y-4">
+                        <div><p className="text-sm font-medium mb-1 opacity-60">Diagnosis</p><p>{record.diagnosis}</p></div>
+                        <div><p className="text-sm font-medium mb-1 opacity-60">Prescription</p><div className="p-4 rounded-lg border bg-white dark:bg-gray-800 font-mono text-sm whitespace-pre-wrap">{record.prescription}</div></div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+            <div className={`border-t px-8 py-4 text-right ${theme === 'dark' ? 'bg-gray-900' : 'bg-gray-50'}`}>
+                <button onClick={() => setShowHistoryModal(false)} className="px-6 py-2 bg-blue-600 text-white rounded-lg">Close</button>
+            </div>
+          </div>
+        </motion.div>
+      )}
+    </AnimatePresence>
+
+    <TodayPatientsModal isOpen={showAllPatientsModal} onClose={() => setShowAllPatientsModal(false)} patients={allPatientsList} isLoading={loadingList} />
+  </Layout>
   );
 }
