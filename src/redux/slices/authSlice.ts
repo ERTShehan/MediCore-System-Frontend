@@ -6,6 +6,7 @@ interface User {
   name: string;
   email: string;
   roles: string[];
+  paymentStatus?: "paid" | "unpaid";
   clinicName?: string;
   clinicAddress?: string;
   profileImage?: string;

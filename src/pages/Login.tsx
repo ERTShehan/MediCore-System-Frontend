@@ -7,6 +7,8 @@ import logo from "../assets/medicore-logo.png";
 import ThemeToggle from "../components/ThemeToggle";
 import { useTheme } from "../hooks/useTheme";
 import { Loader2, Mail, Lock, CheckCircle, AlertCircle, X, Key, Eye, EyeOff } from "lucide-react";
+import { useAppDispatch } from "../redux/store";
+import { setCredentials, loadUser } from "../redux/slices/authSlice";
 
 interface LoginFormData {
   email: string;
@@ -27,7 +29,7 @@ interface PasswordValidation {
   specialChar: boolean;
 }
 
-const Login: React.FC = () => {
+const Login = () => {
   // Login States
   const [formData, setFormData] = useState<LoginFormData>({
     email: "",
@@ -59,6 +61,7 @@ const Login: React.FC = () => {
     specialChar: false,
   });
 
+  const dispatch = useAppDispatch();
   const { setUser } = useAuth();
   const navigate = useNavigate();
   const { theme } = useTheme();
@@ -99,6 +102,9 @@ const Login: React.FC = () => {
 
       localStorage.setItem("accessToken", accessToken);
       localStorage.setItem("refreshToken", refreshToken);
+
+      dispatch(setCredentials(res.data));
+      await dispatch(loadUser())
 
       setUser(res.data);
 

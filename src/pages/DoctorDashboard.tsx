@@ -22,6 +22,7 @@ import { searchSuggestions } from "../services/template";
 // Components
 import TodayPatientsModal from "../components/TodayPatientsModal";
 import { notify, ToastContainer } from "../components/ToastNotification";
+import PayNowModal from "../components/PayNowModal";
 
 // Icons
 import { 
@@ -289,6 +290,8 @@ export default function DoctorDashboard() {
   // Instead of local state, we use selectors for queue data
   const { currentPatient, completedList, totalToday } = useAppSelector((state) => state.visit);
 
+  const { user } = useAppSelector((state) => state.auth);
+
   const prescriptionRef = useRef<HTMLTextAreaElement>(null);
   
   // Patient States (UI Specific)
@@ -325,6 +328,8 @@ export default function DoctorDashboard() {
   const [emSuggestions, setEmSuggestions] = useState<Suggestion[]>([]);
   const [showEmSuggestions, setShowEmSuggestions] = useState(false);
   const [activeEmSuggestionIndex, setActiveEmSuggestionIndex] = useState(0);
+
+  const [showPayModal, setShowPayModal] = useState(false);
 
   const emergencyPrescriptionRef = useRef<HTMLTextAreaElement>(null);
   
@@ -369,6 +374,14 @@ export default function DoctorDashboard() {
   useEffect(() => {
     fetchStaff();
   }, []);
+
+  const handleActionWithPayCheck = (action: () => void) => {
+    if (user?.paymentStatus === "unpaid") {
+      setShowPayModal(true);
+    } else {
+      action();
+    }
+  };
 
   const fetchStaff = async () => {
     try {
@@ -475,33 +488,35 @@ export default function DoctorDashboard() {
     }
   };
 
-  const handleRequestPatient = async () => {
-    if (currentPatient) {
-      setIsModalOpen(true);
-      return;
-    }
+  const handleRequestPatient = () => {
+    handleActionWithPayCheck(async () => {
+      if (currentPatient) {
+        setIsModalOpen(true);
+        return;
+      }
 
-    setPatientLoading(true);
-    const loadingId = notify.loading("Checking patient queue...");
-    
-    try {
-      const patient = await requestNextPatient();
-      // Trigger immediate Redux update after DB change
-      dispatch(fetchQueue());
+      setPatientLoading(true);
+      const loadingId = notify.loading("Checking patient queue...");
+      
+      try {
+        const patient = await requestNextPatient();
+        // Trigger immediate Redux update after DB change
+        dispatch(fetchQueue());
 
-      setDiagnosis("");
-      setPrescription("");
-      setHistoryList([]);
-      setIsModalOpen(true);
-      notify.dismiss(loadingId);
-      notify.success(`Patient ${patient.patientName} loaded successfully`);
-    } catch (error: any) {
-      notify.dismiss(loadingId);
-      const errorMessage = error.response?.data?.message || "No patients in queue";
-      notify.warning(errorMessage);
-    } finally {
-      setPatientLoading(false);
-    }
+        setDiagnosis("");
+        setPrescription("");
+        setHistoryList([]);
+        setIsModalOpen(true);
+        notify.dismiss(loadingId);
+        notify.success(`Patient ${patient.patientName} loaded successfully`);
+      } catch (error: any) {
+        notify.dismiss(loadingId);
+        const errorMessage = error.response?.data?.message || "No patients in queue";
+        notify.warning(errorMessage);
+      } finally {
+        setPatientLoading(false);
+      }
+    })
   };
 
   const handleSubmitTreatment = async (e: React.FormEvent) => {
@@ -542,27 +557,29 @@ export default function DoctorDashboard() {
   };
 
   // EMERGENCY PATIENT HANDLER
-  const handleEmergencySubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setEmergencyLoading(true);
-    const loadingId = notify.loading("Registering emergency patient...");
+  const handleEmergencySubmit = (e: React.FormEvent) => {
+    handleActionWithPayCheck(async () => {
+      e.preventDefault();
+      setEmergencyLoading(true);
+      const loadingId = notify.loading("Registering emergency patient...");
 
-    try {
-      await createEmergencyVisit(emergencyForm);
-      notify.dismiss(loadingId);
-      notify.success("Emergency patient registered & treated!");
-      // Reset form
-      setEmergencyForm({ patientName: "", age: "", phone: "", diagnosis: "", prescription: "" });
-      setShowEmergencyModal(false);
-      
-      // Sync with Redux
-      dispatch(fetchQueue()); 
-    } catch (error: any) {
-      notify.dismiss(loadingId);
-      notify.error(error.response?.data?.message || "Failed to register emergency patient");
-    } finally {
-      setEmergencyLoading(false);
-    }
+      try {
+        await createEmergencyVisit(emergencyForm);
+        notify.dismiss(loadingId);
+        notify.success("Emergency patient registered & treated!");
+        // Reset form
+        setEmergencyForm({ patientName: "", age: "", phone: "", diagnosis: "", prescription: "" });
+        setShowEmergencyModal(false);
+        
+        // Sync with Redux
+        dispatch(fetchQueue()); 
+      } catch (error: any) {
+        notify.dismiss(loadingId);
+        notify.error(error.response?.data?.message || "Failed to register emergency patient");
+      } finally {
+        setEmergencyLoading(false);
+      }
+    });
   };
 
   // STAFF HANDLERS
@@ -622,17 +639,19 @@ export default function DoctorDashboard() {
     }
   };
 
-  const handleViewAllPatients = async() => {
-    setShowAllPatientsModal(true);
-    setLoadingList(true);
-    try {
-      const res = await getAllTodayVisits();
-      setAllPatientsList(res.data);
-    } catch (error) {
-      notify.error("Failed to load all patients");
-    } finally {
-      setLoadingList(false);
-    }
+  const handleViewAllPatients = () => {
+    handleActionWithPayCheck(async () => {
+      setShowAllPatientsModal(true);
+      setLoadingList(true);
+      try {
+        const res = await getAllTodayVisits();
+        setAllPatientsList(res.data);
+      } catch (error) {
+        notify.error("Failed to load all patients");
+      } finally {
+        setLoadingList(false);
+      }
+    })
   };
 
   // Recent Patients Component
@@ -693,6 +712,11 @@ export default function DoctorDashboard() {
   return (
     <Layout>
       <ToastContainer />
+
+      <PayNowModal 
+        isOpen={showPayModal} 
+        onClose={() => setShowPayModal(false)} 
+      />
 
       <ConfirmationModal
         isOpen={confirmationModal.isOpen}
