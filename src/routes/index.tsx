@@ -1,6 +1,6 @@
 import { lazy, Suspense, type ReactNode } from "react";
 import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
-import { useAuth } from "../context/authContext";
+import { useAppSelector } from "../redux/store";
 
 const Index = lazy(() => import("../pages/index"));
 const Login = lazy(() => import("../pages/Login"));
@@ -15,7 +15,7 @@ const DoctorProfileManage = lazy(() => import("../pages/DoctorProfileManage"));
 type RequireAuthTypes = { children: ReactNode; roles?: string[] };
 
 const RequireAuth = ({ children, roles }: RequireAuthTypes) => {
-  const { user, loading } = useAuth();
+  const { user, loading } = useAppSelector((state) => state.auth);
 
   if (loading) {
     return (

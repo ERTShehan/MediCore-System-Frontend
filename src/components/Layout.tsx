@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { useAuth } from "../context/authContext";
+import { useAppSelector, useAppDispatch } from "../redux/store";
+import { logout } from "../redux/slices/authSlice";
 import ThemeToggle from "./ThemeToggle"; 
 import { useTheme } from "../hooks/useTheme";
 import { motion, AnimatePresence } from "framer-motion";
@@ -11,14 +12,16 @@ interface LayoutProps {
 }
 
 export default function Layout({ children }: LayoutProps) {
-  const { user, setUser } = useAuth();
+  const { user } = useAppSelector((state) => state.auth);
+  const dispatch = useAppDispatch();
   const navigate = useNavigate();
   const { theme } = useTheme(); 
   
   const [showLogoutModal, setShowLogoutModal] = useState(false);
 
   const performLogout = () => {
-    setUser(null);
+    // setUser(null);
+    dispatch(logout());
     localStorage.removeItem("accessToken");
     localStorage.removeItem("refreshToken");
     setShowLogoutModal(false);
@@ -43,7 +46,7 @@ export default function Layout({ children }: LayoutProps) {
             <span className={`text-xs px-2 py-0.5 rounded-full uppercase font-bold tracking-wide ${
               theme === 'dark' ? 'bg-blue-900/30 text-blue-300' : 'bg-blue-100 text-blue-700'
             }`}>
-              {user?.role} Dashboard
+              {user?.roles} Dashboard
             </span>
           </div>
 
@@ -91,7 +94,7 @@ export default function Layout({ children }: LayoutProps) {
             <h2 className={`text-2xl font-bold mb-2 ${
               theme === 'dark' ? 'text-white' : 'text-gray-800'
             }`}>
-              Welcome to the {user?.role === "doctor" ? "Doctor" : "Staff"} Dashboard
+              Welcome to the {user?.roles?.includes("doctor") ? "Doctor" : "Staff"} Dashboard
             </h2>
             <p className={`${
               theme === 'dark' ? 'text-gray-400' : 'text-gray-500'

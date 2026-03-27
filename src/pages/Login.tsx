@@ -1,7 +1,6 @@
 import React, { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import { useAuth } from "../context/authContext";
 import { loginUser, sendForgotPasswordOTP, resetPasswordWithOTP } from "../services/auth";
 import logo from "../assets/medicore-logo.png";
 import ThemeToggle from "../components/ThemeToggle";
@@ -39,7 +38,6 @@ const Login = () => {
   const [loading, setLoading] = useState<boolean>(false);
   const [showPassword, setShowPassword] = useState<boolean>(false);
   
-  // Forgot Password Modal States
   const [showForgotModal, setShowForgotModal] = useState(false);
   const [otpStep, setOtpStep] = useState<1 | 2>(1);
   const [resetEmail, setResetEmail] = useState("");
@@ -62,11 +60,10 @@ const Login = () => {
   });
 
   const dispatch = useAppDispatch();
-  const { setUser } = useAuth();
+  // const { setUser } = useAuth();
   const navigate = useNavigate();
   const { theme } = useTheme();
 
-  // Handle form input changes
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     setFormData(prev => ({
@@ -83,7 +80,6 @@ const Login = () => {
     e.preventDefault();
     setError("");
     
-    // Basic validation
     if (!formData.email || !formData.password) {
       setError("Please fill in all fields");
       return;
@@ -106,7 +102,8 @@ const Login = () => {
       dispatch(setCredentials(res.data));
       await dispatch(loadUser())
 
-      setUser(res.data);
+      // setUser(res.data);
+      dispatch(setCredentials(res.data));
 
       // Navigate based on user role
       const userRole = roles?.[0] || "";

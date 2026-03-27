@@ -1,7 +1,8 @@
 import React, { useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import Layout from "../components/Layout";
-import { useAuth } from "../context/authContext";
+import { useAppSelector, useAppDispatch } from "../redux/store";
+import { setCredentials } from "../redux/slices/authSlice";
 import { useTheme } from "../hooks/useTheme";
 import { motion, AnimatePresence } from "framer-motion";
 import { notify, ToastContainer } from "../components/ToastNotification";
@@ -19,7 +20,8 @@ import {
 } from "lucide-react";
 
 export default function DoctorProfileManage() {
-  const { user, setUser } = useAuth();
+  const { user } = useAppSelector((state) => state.auth);
+  const dispatch = useAppDispatch();
   const { theme } = useTheme();
   const navigate = useNavigate();
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -84,7 +86,8 @@ export default function DoctorProfileManage() {
       const res = await updateDoctorProfile(formData);
       
       // Update Context
-      setUser(res.data); 
+      // setUser(res.data);
+      dispatch(setCredentials(res.data));
       setIsEditing(false);
       notify.dismiss(loadId);
       notify.success("Profile updated successfully!");
@@ -175,7 +178,6 @@ export default function DoctorProfileManage() {
           
           {/* Profile Info Card */}
           <div className={`rounded-2xl border shadow-sm overflow-hidden ${theme === 'dark' ? 'bg-gray-900 border-gray-800' : 'bg-white border-gray-200'}`}>
-            {/* Cover / Header */}
             <div className="h-32 bg-linear-to-r from-blue-600 to-emerald-600 relative">
               <div className="absolute -bottom-12 left-8">
                 <div className="relative group">

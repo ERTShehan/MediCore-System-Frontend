@@ -65,4 +65,4 @@ The client-side application for **MediCore**, built with modern web technologies
 5.  **Completion:** Counter sees the bill -> Collects payment -> Prints Report.
 
 ## 🔗 Deployed URL
-* **Live Site:** [Insert Deployed Link Here]
+* **Live Site:** https://medicore-ashy.vercel.app
